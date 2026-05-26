@@ -158,7 +158,7 @@ function getDomain(url) {
   }
 }
 
-export default function EventPanel({ event, onClose }) {
+export default function EventPanel({ event, onBack, onClose }) {
   if (!event) return null
 
   const ticketSources = [1, 2, 3, 4]
@@ -179,6 +179,14 @@ export default function EventPanel({ event, onClose }) {
     <div style={styles.panel}>
       <div style={styles.header}>
         <button style={styles.closeBtn} onClick={onClose}>✕</button>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{ background: 'none', border: 'none', color: '#7c6af7', fontSize: '13px', cursor: 'pointer', padding: '0 0 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
+            ‹ All events at this venue
+          </button>
+        )}
         <div style={styles.eventType}>
           {event.event_type || 'Concert'}
           {event.multi_day_event && <span style={styles.badge}>Multi-day</span>}
@@ -205,6 +213,16 @@ export default function EventPanel({ event, onClose }) {
         <div style={styles.infoRow}>
           <div style={styles.label}>Venue</div>
           <div style={styles.value}>{event.venue}</div>
+          {event.address && (
+            <a
+              href={`https://maps.google.com/?q=${encodeURIComponent(event.address)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: '12px', color: '#7c6af7', textDecoration: 'none', marginTop: '2px' }}
+            >
+              📍 {event.address}
+            </a>
+          )}
         </div>
 
         {/* Description */}

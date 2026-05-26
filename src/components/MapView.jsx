@@ -4,39 +4,17 @@ import 'leaflet/dist/leaflet.css'
 
 const NYC_CENTER = [40.7549, -73.9840]
 
-// Slightly shift markers at the same location so they don't stack exactly
-function jitter(lat, lng, existingPositions) {
-  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`
-  const count = existingPositions.get(key) || 0
-  existingPositions.set(key, count + 1)
-  if (count === 0) return [lat, lng]
-  const angle = (count * 137.5 * Math.PI) / 180  // golden angle spread
-  const radius = 0.0003 * Math.ceil(count / 6)
-  return [lat + radius * Math.sin(angle), lng + radius * Math.cos(angle)]
-}
-
-function PanToSelected({ selectedEvent, geocache }) {
+function PanToSelected({ selectedVenueKey, venueGroups }) {
   const map = useMap()
   React.useEffect(() => {
-    if (!selectedEvent) return
-    const coords = geocache[selectedEvent.venue]
-    if (coords) map.panTo([coords.lat, coords.lng], { animate: true, duration: 0.5 })
-  }, [selectedEvent, geocache, map])
+    if (!selectedVenueKey) return
+    const group = venueGroups.find(g => g.key === selectedVenueKey)
+    if (group?.coords) map.panTo([group.coords.lat, group.coords.lng], { animate: true, duration: 0.5 })
+  }, [selectedVenueKey, venueGroups, map])
   return null
 }
 
-export default function MapView({ events, geocache, selectedEvent, onSelectEvent }) {
-  const markers = useMemo(() => {
-    const positions = new Map()
-    return events
-      .filter(e => geocache[e.venue])
-      .map(e => {
-        const { lat, lng } = geocache[e.venue]
-        const [jLat, jLng] = jitter(lat, lng, positions)
-        return { event: e, lat: jLat, lng: jLng }
-      })
-  }, [events, geocache])
-
+export default function MapView({ venueGroups, selectedVenueKey, onSelectVenue }) {
   return (
     <MapContainer
       center={NYC_CENTER}
@@ -50,27 +28,33 @@ export default function MapView({ events, geocache, selectedEvent, onSelectEvent
         maxZoom={19}
       />
 
-      <PanToSelected selectedEvent={selectedEvent} geocache={geocache} />
+      <PanToSelected selectedVenueKey={selectedVenueKey} venueGroups={venueGroups} />
 
-      {markers.map(({ event, lat, lng }) => {
-        const isSelected = selectedEvent?.event_entry_id === event.event_entry_id
+      {venueGroups.map(group => {
+        const isSelected = group.key === selectedVenueKey
+        const multi = group.events.length > 1
+        const radius = isSelected ? 11 : multi ? Math.min(7 + group.events.length, 13) : 7
+
         return (
           <CircleMarker
-            key={event.event_entry_id}
-            center={[lat, lng]}
-            radius={isSelected ? 10 : 7}
+            key={group.key}
+            center={[group.coords.lat, group.coords.lng]}
+            radius={radius}
             pathOptions={{
-              fillColor: isSelected ? '#ffffff' : '#7c6af7',
-              fillOpacity: isSelected ? 1 : 0.85,
-              color: isSelected ? '#ffffff' : '#a89cf7',
-              weight: isSelected ? 2 : 1,
+              fillColor: isSelected ? '#ffffff' : multi ? '#f4a24a' : '#7c6af7',
+              fillOpacity: isSelected ? 1 : 0.88,
+              color: isSelected ? '#ffffff' : multi ? '#f9c07a' : '#a89cf7',
+              weight: isSelected ? 2.5 : 1.5,
             }}
-            eventHandlers={{ click: () => onSelectEvent(event) }}
+            eventHandlers={{ click: () => onSelectVenue(group) }}
           >
-            <Tooltip direction="top" offset={[0, -6]} opacity={0.95}>
-              <div style={{ fontSize: '12px', maxWidth: '220px' }}>
-                <div style={{ fontWeight: 700, marginBottom: '2px' }}>{event.event_title}</div>
-                <div style={{ color: '#aaa' }}>{event.date}{event.start_time ? ` · ${event.start_time}` : ''}</div>
+            <Tooltip direction="top" offset={[0, -6]} opacity={0.96}>
+              <div style={{ fontSize: '12px', maxWidth: '230px' }}>
+                <div style={{ fontWeight: 700, marginBottom: '2px' }}>{group.displayName}</div>
+                {multi
+                  ? <div style={{ color: '#f4a24a' }}>{group.events.length} events</div>
+                  : <div style={{ color: '#ccc' }}>{group.events[0].artist} · {group.events[0].date}</div>
+                }
               </div>
             </Tooltip>
           </CircleMarker>
