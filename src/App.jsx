@@ -109,7 +109,7 @@ export default function App() {
   }, [events, search, dateFrom, dateTo])
 
   // Group filtered events by normalized venue → one marker per venue
-  const venueGroups = useMemo(() => {
+  const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
     for (const e of filteredEvents) {
       const norm = normalizeVenue(e.venue)
@@ -118,7 +118,7 @@ export default function App() {
           key: norm,
           displayName: cleanVenueName(e.venue),
           address: e.address || null,
-          coords: geocache[e.event_entry_id],
+          coords: geocache[e.event_entry_id] || null,
           events: [],
         })
       } else {
@@ -133,7 +133,12 @@ export default function App() {
     for (const g of map.values()) {
       g.events.sort((a, b) => compareDates(a.date, b.date) || (a.start_time || '').localeCompare(b.start_time || ''))
     }
-    return Array.from(map.values()).filter(g => g.coords)
+    const allGroups = Array.from(map.values())
+    const venueGroups = allGroups.filter(g => g.coords)
+    const unmappedGroups = allGroups.filter(g => !g.coords)
+    const unmappedCount = unmappedGroups.length
+    const unmappedEventCount = unmappedGroups.reduce((sum, g) => sum + g.events.length, 0)
+    return { venueGroups, unmappedCount, unmappedEventCount }
   }, [filteredEvents, geocache])
 
   const selectedVenueKey = panel?.type === 'venue' ? panel.venue.key
@@ -171,7 +176,7 @@ export default function App() {
         <div style={S.stats}>
           {loading
             ? geocodeProgress.total > 0 ? `Geocoding… ${geocodeProgress.done}/${geocodeProgress.total}` : 'Loading…'
-            : `${totalEvents} events · ${totalMapped} venues`}
+            : `${totalEvents} events · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-const CACHE_KEY = 'concert_map_geocache_v2'
+const CACHE_KEY = 'concert_map_geocache_v3'
 export const NYC_CENTER = { lat: 40.7549, lng: -73.9840 }
 const RATE_LIMIT_MS = 1100
 
@@ -50,9 +50,9 @@ export async function geocodeEvents(events, onProgress) {
       // then fall back to appending NYC
       let coords = await nominatim(key)
       if (!coords) coords = await nominatim(`${cleanVenue(key)}, New York City, NY`)
-      cache[key] = coords || NYC_CENTER
+      cache[key] = coords  // null if not found — no silent NYC_CENTER fallback
     } catch {
-      cache[key] = NYC_CENTER
+      cache[key] = null
     }
     done++
     onProgress(done, total)
