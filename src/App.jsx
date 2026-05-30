@@ -97,6 +97,7 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState(defaultDates().from)
   const [dateTo, setDateTo] = useState(defaultDates().to)
+  const [genreFilter, setGenreFilter] = useState('')
 
   // Panel state
   const [panel, setPanel] = useState(null)
@@ -126,6 +127,7 @@ export default function App() {
     setActiveTabId(tabId)
     setPanel(null)
     setSearch('')
+    setGenreFilter('')
     loadTab(tabId)
   }
 
@@ -134,12 +136,21 @@ export default function App() {
   const loading = loadingByTab[activeTabId]
   const error = errorByTab[activeTabId]
 
+  const availableGenres = useMemo(() => {
+    const genres = new Set()
+    for (const e of events) {
+      if (e.genre) genres.add(e.genre)
+    }
+    return Array.from(genres).sort()
+  }, [events])
+
   const filteredEvents = useMemo(() => {
     const fromDb = inputToDb(dateFrom)
     const toDb = inputToDb(dateTo)
     return events.filter(e => {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
+      if (genreFilter && e.genre !== genreFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         return (
@@ -150,7 +161,7 @@ export default function App() {
       }
       return true
     })
-  }, [events, search, dateFrom, dateTo])
+  }, [events, search, dateFrom, dateTo, genreFilter])
 
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
@@ -198,6 +209,7 @@ export default function App() {
     setDateFrom(d.from)
     setDateTo(d.to)
     setSearch('')
+    setGenreFilter('')
   }
 
   const totalMapped = venueGroups.length
@@ -256,6 +268,18 @@ export default function App() {
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
           />
+          {activeTabId === 'concert' && availableGenres.length > 0 && (
+            <select
+              style={{ ...S.input, width: '140px' }}
+              value={genreFilter}
+              onChange={e => setGenreFilter(e.target.value)}
+            >
+              <option value=''>All Genres</option>
+              {availableGenres.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          )}
           <button style={S.clearBtn} onClick={resetDates}>Reset</button>
         </div>
 
