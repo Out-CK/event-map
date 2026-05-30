@@ -41,6 +41,30 @@ const TABS = [
     genres: CONCERT_GENRES,
   },
   {
+    id: 'comedy',
+    label: '🎤 Comedy',
+    accentColor: '#e05c8a',
+    markerColor: '#e05c8a',
+    markerBorder: '#f08aae',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Comedian, venue, or show…',
+    statLabel: 'shows',
+    genres: [],
+  },
+  {
+    id: 'theater',
+    label: '🎭 Theater',
+    accentColor: '#c0392b',
+    markerColor: '#c0392b',
+    markerBorder: '#e05c4e',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Show, theater, or production…',
+    statLabel: 'productions',
+    genres: [],
+  },
+  {
     id: 'class',
     label: '🎨 Classes',
     accentColor: '#2ec4b6',
@@ -113,10 +137,10 @@ const S = {
 
 export default function App() {
   const [activeTabId, setActiveTabId] = useState('concert')
-  const [eventsByTab, setEventsByTab] = useState({ concert: [], class: [], art: [] })
-  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, class: {}, art: {} })
-  const [loadingByTab, setLoadingByTab] = useState({ concert: true, class: false, art: false })
-  const [errorByTab, setErrorByTab] = useState({ concert: null, class: null, art: null })
+  const [eventsByTab, setEventsByTab] = useState({ concert: [], comedy: [], theater: [], class: [], art: [] })
+  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, comedy: {}, theater: {}, class: {}, art: {} })
+  const [loadingByTab, setLoadingByTab] = useState({ concert: true, comedy: false, theater: false, class: false, art: false })
+  const [errorByTab, setErrorByTab] = useState({ concert: null, comedy: null, theater: null, class: null, art: null })
   const [loadedTabs, setLoadedTabs] = useState(new Set())
 
   // Filters (shared across tabs, reset on tab switch)
@@ -236,7 +260,7 @@ export default function App() {
   return (
     <div style={S.root}>
       <div style={S.topbar}>
-        <div style={S.logo}>🗽 NYC Map</div>
+        <div style={S.logo}>🗽 NYC Events</div>
         <div style={S.stats}>
           {loading
             ? 'Loading…'
