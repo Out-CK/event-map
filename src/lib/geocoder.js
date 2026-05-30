@@ -1,63 +1,18 @@
-const CACHE_KEY = 'concert_map_geocache_v3'
 export const NYC_CENTER = { lat: 40.7549, lng: -73.9840 }
-const RATE_LIMIT_MS = 1100
-
-function loadCache() {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') } catch { return {} }
-}
-function saveCache(cache) {
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(cache)) } catch {}
-}
-
-let lastRequestTime = 0
-async function nominatim(query) {
-  const now = Date.now()
-  const wait = RATE_LIMIT_MS - (now - lastRequestTime)
-  if (wait > 0) await new Promise(r => setTimeout(r, wait))
-  lastRequestTime = Date.now()
-
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1&countrycodes=us`
-  const res = await fetch(url, { headers: { 'User-Agent': 'ConcertMap/1.0' } })
-  if (!res.ok) throw new Error(`Nominatim ${res.status}`)
-  const data = await res.json()
-  return data.length ? { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) } : null
-}
-
-function cleanVenue(venue) {
-  return venue
-    .replace(/,?\s*(new york(?: city)?|nyc|brooklyn|queens|bronx|manhattan|staten island)(,?\s*(ny|new york))?$/i, '')
-    .trim().replace(/,$/, '').trim()
-}
 
 /**
- * Geocode a list of events. Prefers the stored `address` field over venue name.
- * Results are cached in localStorage by cache key (address or venue).
+ * Build a geocache from event rows that already have lat/lng stored in the DB.
+ * Returns { cache: { event_entry_id → {lat, lng} | null }, eventKeys: [] }
+ * eventKeys is kept for API compatibility with App.jsx.
  */
-export async function geocodeEvents(events, onProgress) {
-  const cache = loadCache()
-
-  // Build a map: event → cache key to look up
-  const eventKeys = events.map(e => e.address || e.venue)
-  const missing = [...new Set(eventKeys)].filter(k => !(k in cache))
-
-  let done = eventKeys.filter(k => k in cache).length
-  const total = events.length
-  onProgress(done, total)
-
-  for (const key of missing) {
-    try {
-      // Try the key directly first (works well for full addresses),
-      // then fall back to appending NYC
-      let coords = await nominatim(key)
-      if (!coords) coords = await nominatim(`${cleanVenue(key)}, New York City, NY`)
-      cache[key] = coords  // null if not found — no silent NYC_CENTER fallback
-    } catch {
-      cache[key] = null
-    }
-    done++
-    onProgress(done, total)
-    saveCache(cache)
+export function geocodeEvents(events, onProgress) {
+  const cache = {}
+  for (const e of events) {
+    cache[e.event_entry_id] =
+      e.lat != null && e.lng != null ? { lat: e.lat, lng: e.lng } : null
   }
-
+  // eventKeys mirrors the old API: one key per event, keyed by event_entry_id
+  const eventKeys = events.map(e => e.event_entry_id)
+  onProgress(events.length, events.length)
   return { cache, eventKeys }
 }

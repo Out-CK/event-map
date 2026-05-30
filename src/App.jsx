@@ -56,7 +56,6 @@ export default function App() {
   const [events, setEvents] = useState([])
   const [geocache, setGeocache] = useState({})        // event_entry_id → {lat, lng}
   const [loading, setLoading] = useState(true)
-  const [geocodeProgress, setGeocodeProgress] = useState({ done: 0, total: 0 })
   const [error, setError] = useState(null)
 
   // Filters
@@ -73,13 +72,8 @@ export default function App() {
         setLoading(true)
         const data = await fetchAllEvents()
         setEvents(data)
-        setGeocodeProgress({ done: 0, total: data.length })
-        const { cache, eventKeys } = await geocodeEvents(data, (done, total) => {
-          setGeocodeProgress({ done, total })
-        })
-        const perEvent = {}
-        data.forEach((e, i) => { perEvent[e.event_entry_id] = cache[eventKeys[i]] })
-        setGeocache(perEvent)
+        const { cache } = geocodeEvents(data, () => {})
+        setGeocache(cache)
       } catch (e) {
         setError(e.message)
       } finally {
@@ -156,9 +150,6 @@ export default function App() {
   }
   function closePanel() { setPanel(null) }
 
-  const pct = geocodeProgress.total > 0
-    ? Math.round((geocodeProgress.done / geocodeProgress.total) * 100) : 100
-
   const totalMapped = venueGroups.length
   const totalEvents = filteredEvents.length
 
@@ -175,7 +166,7 @@ export default function App() {
         <div style={S.logo}>🎵 NYC Concert Map</div>
         <div style={S.stats}>
           {loading
-            ? geocodeProgress.total > 0 ? `Geocoding… ${geocodeProgress.done}/${geocodeProgress.total}` : 'Loading…'
+            ? 'Loading…'
             : `${totalEvents} events · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
         </div>
       </div>
@@ -215,16 +206,7 @@ export default function App() {
           <div style={S.loadingOverlay}>
             {error
               ? <div style={S.errorBox}>Error: {error}</div>
-              : <>
-                  <div style={S.loadingText}>
-                    {geocodeProgress.total > 0
-                      ? `Geocoding venues… ${geocodeProgress.done} / ${geocodeProgress.total}`
-                      : 'Fetching events…'}
-                  </div>
-                  <div style={S.progressBar}>
-                    <div style={{ ...S.progressFill, width: `${pct}%` }} />
-                  </div>
-                </>
+              : <div style={S.loadingText}>Fetching events…</div>
             }
           </div>
         )}
