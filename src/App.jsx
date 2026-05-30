@@ -148,7 +148,7 @@ export default function App() {
     return events.filter(e => {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
-      if (genreFilter && e.genre !== genreFilter) return false
+      if (genreFilter && e.genre && e.genre !== genreFilter) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         return (
