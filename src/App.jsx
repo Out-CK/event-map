@@ -21,6 +21,12 @@ const CONCERT_GENRES = [
   'Latin', 'Metal', 'Other', 'Pop', 'Punk', 'R&B', 'Reggae', 'Rock', 'World',
 ]
 
+const ART_GENRES = [
+  'Ceramics', 'Contemporary', 'Drawing', 'Installation', 'Mixed Media',
+  'Modern', 'Other', 'Painting', 'Performance', 'Photography', 'Printmaking',
+  'Sculpture', 'Street Art', 'Textile', 'Video Art',
+]
+
 const TABS = [
   {
     id: 'concert',
@@ -32,6 +38,7 @@ const TABS = [
     multiBorder: '#f9c07a',
     searchPlaceholder: 'Artist, venue, or title…',
     statLabel: 'concerts',
+    genres: CONCERT_GENRES,
   },
   {
     id: 'class',
@@ -43,6 +50,19 @@ const TABS = [
     multiBorder: '#f9c07a',
     searchPlaceholder: 'Instructor, venue, or class…',
     statLabel: 'classes',
+    genres: [],
+  },
+  {
+    id: 'art',
+    label: '🖼 Art',
+    accentColor: '#e8a045',
+    markerColor: '#e8a045',
+    markerBorder: '#f0bc72',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Artist, gallery, or exhibition…',
+    statLabel: 'exhibitions',
+    genres: ART_GENRES,
   },
 ]
 
@@ -93,10 +113,10 @@ const S = {
 
 export default function App() {
   const [activeTabId, setActiveTabId] = useState('concert')
-  const [eventsByTab, setEventsByTab] = useState({ concert: [], class: [] })
-  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, class: {} })
-  const [loadingByTab, setLoadingByTab] = useState({ concert: true, class: false })
-  const [errorByTab, setErrorByTab] = useState({ concert: null, class: null })
+  const [eventsByTab, setEventsByTab] = useState({ concert: [], class: [], art: [] })
+  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, class: {}, art: {} })
+  const [loadingByTab, setLoadingByTab] = useState({ concert: true, class: false, art: false })
+  const [errorByTab, setErrorByTab] = useState({ concert: null, class: null, art: null })
   const [loadedTabs, setLoadedTabs] = useState(new Set())
 
   // Filters (shared across tabs, reset on tab switch)
@@ -266,14 +286,14 @@ export default function App() {
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
           />
-          {activeTabId === 'concert' && (
+          {activeTab.genres.length > 0 && (
             <select
               style={{ ...S.input, width: '140px' }}
               value={genreFilter}
               onChange={e => setGenreFilter(e.target.value)}
             >
               <option value=''>All Genres</option>
-              {CONCERT_GENRES.map(g => (
+              {activeTab.genres.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
