@@ -202,7 +202,7 @@ export default function App() {
           onSelectVenue={openVenue}
         />
 
-        {loading && (
+        {(loading || error) && (
           <div style={S.loadingOverlay}>
             {error
               ? <div style={S.errorBox}>Error: {error}</div>

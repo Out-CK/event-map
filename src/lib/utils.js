@@ -33,7 +33,13 @@ export function inputToDb(yyyymmdd) {
 
 // Compare two "MM-DD-YYYY" strings chronologically
 export function compareDates(a, b) {
-  const toNum = s => { const [m,d,y] = (s||'').split('-'); return parseInt(`${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`) || 0 }
+  const toNum = s => {
+    const parts = (s || '').split('-')
+    if (parts.length < 3) return 0
+    const [m, d, y] = parts
+    if (!m || !d || !y) return 0
+    return parseInt(`${y}${m.padStart(2,'0')}${d.padStart(2,'0')}`) || 0
+  }
   return toNum(a) - toNum(b)
 }
 

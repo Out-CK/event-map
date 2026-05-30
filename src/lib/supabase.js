@@ -9,6 +9,8 @@ export async function fetchAllEvents() {
   const { data, error } = await supabase
     .from('event_entry_database')
     .select('*')
+    .not('date', 'like', '<%')  // exclude malformed dates like <UNKNOWN>
+    .not('date', 'is', null)
     .order('date', { ascending: true })
 
   if (error) throw error
