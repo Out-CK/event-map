@@ -15,6 +15,12 @@ function defaultDates() {
   return { from: fmt(today), to: fmt(future) }
 }
 
+const CONCERT_GENRES = [
+  'Alternative', 'Blues', 'Classical', 'Country', 'Electronic',
+  'Experimental', 'Folk', 'Gospel', 'Hip-Hop', 'Indie', 'Jazz',
+  'Latin', 'Metal', 'Other', 'Pop', 'Punk', 'R&B', 'Reggae', 'Rock', 'World',
+]
+
 const TABS = [
   {
     id: 'concert',
@@ -135,14 +141,6 @@ export default function App() {
   const geocache = geocacheByTab[activeTabId]
   const loading = loadingByTab[activeTabId]
   const error = errorByTab[activeTabId]
-
-  const availableGenres = useMemo(() => {
-    const genres = new Set()
-    for (const e of events) {
-      if (e.genre) genres.add(e.genre)
-    }
-    return Array.from(genres).sort()
-  }, [events])
 
   const filteredEvents = useMemo(() => {
     const fromDb = inputToDb(dateFrom)
@@ -268,14 +266,14 @@ export default function App() {
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
           />
-          {activeTabId === 'concert' && availableGenres.length > 0 && (
+          {activeTabId === 'concert' && (
             <select
               style={{ ...S.input, width: '140px' }}
               value={genreFilter}
               onChange={e => setGenreFilter(e.target.value)}
             >
               <option value=''>All Genres</option>
-              {availableGenres.map(g => (
+              {CONCERT_GENRES.map(g => (
                 <option key={g} value={g}>{g}</option>
               ))}
             </select>
