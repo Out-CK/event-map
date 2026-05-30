@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import MapView from './components/MapView.jsx'
 import VenuePanel from './components/VenuePanel.jsx'
 import EventPanel from './components/EventPanel.jsx'
-import { fetchAllEvents } from './lib/supabase.js'
+import { fetchEventsByType } from './lib/supabase.js'
 import { geocodeEvents } from './lib/geocoder.js'
 import { normalizeVenue, cleanVenueName, compareDates, dbToInput, inputToDb } from './lib/utils.js'
 
@@ -15,6 +15,31 @@ function defaultDates() {
   return { from: fmt(today), to: fmt(future) }
 }
 
+const TABS = [
+  {
+    id: 'concert',
+    label: '🎵 Concerts',
+    accentColor: '#7c6af7',
+    markerColor: '#7c6af7',
+    markerBorder: '#a89cf7',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Artist, venue, or title…',
+    statLabel: 'concerts',
+  },
+  {
+    id: 'class',
+    label: '🎨 Classes',
+    accentColor: '#2ec4b6',
+    markerColor: '#2ec4b6',
+    markerBorder: '#5fd4cc',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Instructor, venue, or class…',
+    statLabel: 'classes',
+  },
+]
+
 const S = {
   root: { display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f0f14' },
   topbar: {
@@ -24,6 +49,16 @@ const S = {
   },
   logo: { fontSize: '15px', fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.3px' },
   stats: { fontSize: '13px', color: '#555' },
+  tabBar: {
+    display: 'flex', alignItems: 'center', gap: '4px',
+    padding: '0 20px', height: '44px', background: '#16161f',
+    borderBottom: '1px solid #2a2a3a', flexShrink: 0, zIndex: 499,
+  },
+  tab: {
+    padding: '6px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
+    cursor: 'pointer', border: 'none', background: 'transparent',
+    color: '#666', transition: 'all 0.15s',
+  },
   mapArea: { flex: 1, position: 'relative', overflow: 'hidden' },
   filterBar: {
     position: 'absolute', top: '12px', left: '12px', zIndex: 900,
@@ -47,43 +82,58 @@ const S = {
     justifyContent: 'center', zIndex: 2000, gap: '16px',
   },
   loadingText: { color: '#aaa', fontSize: '14px' },
-  progressBar: { width: '240px', height: '4px', background: '#2a2a3a', borderRadius: '2px', overflow: 'hidden' },
-  progressFill: { height: '100%', background: '#7c6af7', borderRadius: '2px', transition: 'width 0.3s ease' },
   errorBox: { color: '#ff6b6b', background: '#2a1a1a', border: '1px solid #4a2a2a', borderRadius: '8px', padding: '16px 24px', fontSize: '14px' },
 }
 
 export default function App() {
-  const [events, setEvents] = useState([])
-  const [geocache, setGeocache] = useState({})        // event_entry_id → {lat, lng}
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [activeTabId, setActiveTabId] = useState('concert')
+  const [eventsByTab, setEventsByTab] = useState({ concert: [], class: [] })
+  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, class: {} })
+  const [loadingByTab, setLoadingByTab] = useState({ concert: true, class: false })
+  const [errorByTab, setErrorByTab] = useState({ concert: null, class: null })
+  const [loadedTabs, setLoadedTabs] = useState(new Set())
 
-  // Filters
+  // Filters (shared across tabs, reset on tab switch)
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState(defaultDates().from)
   const [dateTo, setDateTo] = useState(defaultDates().to)
 
-  // Panel state: null | { type:'venue', venue } | { type:'event', event, backVenue }
+  // Panel state
   const [panel, setPanel] = useState(null)
 
-  useEffect(() => {
-    async function init() {
-      try {
-        setLoading(true)
-        const data = await fetchAllEvents()
-        setEvents(data)
-        const { cache } = geocodeEvents(data, () => {})
-        setGeocache(cache)
-      } catch (e) {
-        setError(e.message)
-      } finally {
-        setLoading(false)
-      }
-    }
-    init()
-  }, [])
+  const activeTab = TABS.find(t => t.id === activeTabId)
 
-  // Apply filters: search + date range
+  async function loadTab(tabId) {
+    if (loadedTabs.has(tabId)) return
+    setLoadingByTab(prev => ({ ...prev, [tabId]: true }))
+    try {
+      const data = await fetchEventsByType(tabId)
+      const { cache } = geocodeEvents(data, () => {})
+      setEventsByTab(prev => ({ ...prev, [tabId]: data }))
+      setGeocacheByTab(prev => ({ ...prev, [tabId]: cache }))
+      setLoadedTabs(prev => new Set([...prev, tabId]))
+    } catch (e) {
+      setErrorByTab(prev => ({ ...prev, [tabId]: e.message }))
+    } finally {
+      setLoadingByTab(prev => ({ ...prev, [tabId]: false }))
+    }
+  }
+
+  // Load concerts on mount
+  useEffect(() => { loadTab('concert') }, [])
+
+  function switchTab(tabId) {
+    setActiveTabId(tabId)
+    setPanel(null)
+    setSearch('')
+    loadTab(tabId)
+  }
+
+  const events = eventsByTab[activeTabId]
+  const geocache = geocacheByTab[activeTabId]
+  const loading = loadingByTab[activeTabId]
+  const error = errorByTab[activeTabId]
+
   const filteredEvents = useMemo(() => {
     const fromDb = inputToDb(dateFrom)
     const toDb = inputToDb(dateTo)
@@ -102,7 +152,6 @@ export default function App() {
     })
   }, [events, search, dateFrom, dateTo])
 
-  // Group filtered events by normalized venue → one marker per venue
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
     for (const e of filteredEvents) {
@@ -116,14 +165,12 @@ export default function App() {
           events: [],
         })
       } else {
-        // Update coords if this entry has them and the group doesn't
         const g = map.get(norm)
         if (!g.coords && geocache[e.event_entry_id]) g.coords = geocache[e.event_entry_id]
         if (!g.address && e.address) g.address = e.address
       }
       map.get(norm).events.push(e)
     }
-    // Sort events within each group by date then start_time
     for (const g of map.values()) {
       g.events.sort((a, b) => compareDates(a.date, b.date) || (a.start_time || '').localeCompare(b.start_time || ''))
     }
@@ -138,20 +185,13 @@ export default function App() {
   const selectedVenueKey = panel?.type === 'venue' ? panel.venue.key
     : panel?.type === 'event' ? panel.backVenue?.key : null
 
-  function openVenue(venue) {
-    setPanel({ type: 'venue', venue })
-  }
-  function openEvent(event, backVenue) {
-    setPanel({ type: 'event', event, backVenue })
-  }
+  function openVenue(venue) { setPanel({ type: 'venue', venue }) }
+  function openEvent(event, backVenue) { setPanel({ type: 'event', event, backVenue }) }
   function goBack() {
     if (panel?.backVenue) setPanel({ type: 'venue', venue: panel.backVenue })
     else setPanel(null)
   }
   function closePanel() { setPanel(null) }
-
-  const totalMapped = venueGroups.length
-  const totalEvents = filteredEvents.length
 
   function resetDates() {
     const d = defaultDates()
@@ -160,22 +200,45 @@ export default function App() {
     setSearch('')
   }
 
+  const totalMapped = venueGroups.length
+  const totalEvents = filteredEvents.length
+
   return (
     <div style={S.root}>
       <div style={S.topbar}>
-        <div style={S.logo}>🎵 NYC Concert Map</div>
+        <div style={S.logo}>🗽 NYC Map</div>
         <div style={S.stats}>
           {loading
             ? 'Loading…'
-            : `${totalEvents} events · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
+            : `${totalEvents} ${activeTab.statLabel} · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
         </div>
+      </div>
+
+      <div style={S.tabBar}>
+        {TABS.map(tab => {
+          const isActive = tab.id === activeTabId
+          return (
+            <button
+              key={tab.id}
+              style={{
+                ...S.tab,
+                background: isActive ? `${tab.accentColor}22` : 'transparent',
+                color: isActive ? tab.accentColor : '#666',
+                border: isActive ? `1px solid ${tab.accentColor}44` : '1px solid transparent',
+              }}
+              onClick={() => switchTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
 
       <div style={S.mapArea}>
         <div style={S.filterBar}>
           <input
             style={{ ...S.input, ...S.searchInput }}
-            placeholder="Artist, venue, or title…"
+            placeholder={activeTab.searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
@@ -200,13 +263,18 @@ export default function App() {
           venueGroups={venueGroups}
           selectedVenueKey={selectedVenueKey}
           onSelectVenue={openVenue}
+          accentColor={activeTab.accentColor}
+          markerColor={activeTab.markerColor}
+          markerBorder={activeTab.markerBorder}
+          multiColor={activeTab.multiColor}
+          multiBorder={activeTab.multiBorder}
         />
 
         {(loading || error) && (
           <div style={S.loadingOverlay}>
             {error
               ? <div style={S.errorBox}>Error: {error}</div>
-              : <div style={S.loadingText}>Fetching events…</div>
+              : <div style={S.loadingText}>Fetching {activeTab.statLabel}…</div>
             }
           </div>
         )}
@@ -216,6 +284,7 @@ export default function App() {
             venue={panel.venue}
             onSelectEvent={e => openEvent(e, panel.venue)}
             onClose={closePanel}
+            accentColor={activeTab.accentColor}
           />
         )}
         {panel?.type === 'event' && (
@@ -223,6 +292,7 @@ export default function App() {
             event={panel.event}
             onBack={goBack}
             onClose={closePanel}
+            accentColor={activeTab.accentColor}
           />
         )}
       </div>

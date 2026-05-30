@@ -5,10 +5,11 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
-export async function fetchAllEvents() {
+export async function fetchEventsByType(eventType) {
   const { data, error } = await supabase
     .from('event_entry_database')
     .select('*')
+    .eq('event_type', eventType)
     .not('date', 'like', '<%')  // exclude malformed dates like <UNKNOWN>
     .not('date', 'is', null)
     .order('date', { ascending: true })

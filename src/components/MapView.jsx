@@ -14,7 +14,11 @@ function PanToSelected({ selectedVenueKey, venueGroups }) {
   return null
 }
 
-export default function MapView({ venueGroups, selectedVenueKey, onSelectVenue }) {
+export default function MapView({
+  venueGroups, selectedVenueKey, onSelectVenue,
+  markerColor = '#7c6af7', markerBorder = '#a89cf7',
+  multiColor = '#f4a24a', multiBorder = '#f9c07a',
+}) {
   return (
     <MapContainer
       center={NYC_CENTER}
@@ -41,9 +45,9 @@ export default function MapView({ venueGroups, selectedVenueKey, onSelectVenue }
             center={[group.coords.lat, group.coords.lng]}
             radius={radius}
             pathOptions={{
-              fillColor: isSelected ? '#ffffff' : multi ? '#f4a24a' : '#7c6af7',
+              fillColor: isSelected ? '#ffffff' : multi ? multiColor : markerColor,
               fillOpacity: isSelected ? 1 : 0.88,
-              color: isSelected ? '#ffffff' : multi ? '#f9c07a' : '#a89cf7',
+              color: isSelected ? '#ffffff' : multi ? multiBorder : markerBorder,
               weight: isSelected ? 2.5 : 1.5,
             }}
             eventHandlers={{ click: () => onSelectVenue(group) }}
@@ -52,7 +56,7 @@ export default function MapView({ venueGroups, selectedVenueKey, onSelectVenue }
               <div style={{ fontSize: '12px', maxWidth: '230px' }}>
                 <div style={{ fontWeight: 700, marginBottom: '2px' }}>{group.displayName}</div>
                 {multi
-                  ? <div style={{ color: '#f4a24a' }}>{group.events.length} events</div>
+                  ? <div style={{ color: multiColor }}>{group.events.length} events</div>
                   : <div style={{ color: '#ccc' }}>{group.events[0].artist} · {group.events[0].date}</div>
                 }
               </div>

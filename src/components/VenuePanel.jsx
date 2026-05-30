@@ -16,7 +16,7 @@ const S = {
     background: 'none', border: 'none', color: '#666', fontSize: '18px',
     cursor: 'pointer', padding: '4px 8px', borderRadius: '4px',
   },
-  venueLabel: { fontSize: '11px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', color: '#7c6af7', marginBottom: '6px' },
+  venueLabel: { fontSize: '11px', fontWeight: 600, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '6px' },
   venueName: { fontSize: '18px', fontWeight: 700, color: '#f0f0f0', lineHeight: 1.3, paddingRight: '32px' },
   address: { fontSize: '12px', color: '#555', marginTop: '4px' },
   addressLink: { fontSize: '12px', color: '#555', textDecoration: 'none' },
@@ -38,7 +38,7 @@ const S = {
   eventRowLeft: { flex: 1, minWidth: 0 },
   artist: { fontSize: '14px', fontWeight: 600, color: '#f0f0f0', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
   title: { fontSize: '12px', color: '#777', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-  time: { fontSize: '12px', color: '#7c6af7', marginLeft: '12px', flexShrink: 0 },
+  time: { fontSize: '12px', marginLeft: '12px', flexShrink: 0 },
   arrow: { fontSize: '14px', color: '#444', marginLeft: '8px', flexShrink: 0 },
   ticketBadge: {
     fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
@@ -56,7 +56,7 @@ function groupByDate(events) {
   return Array.from(groups.entries()).sort((a, b) => compareDates(a[0], b[0]))
 }
 
-export default function VenuePanel({ venue, onSelectEvent, onClose }) {
+export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor = '#7c6af7' }) {
   const [hoveredId, setHoveredId] = React.useState(null)
   const dateGroups = groupByDate(venue.events)
   const hasTickets = e => e.tickets_source_1
@@ -65,7 +65,7 @@ export default function VenuePanel({ venue, onSelectEvent, onClose }) {
     <div style={S.panel}>
       <div style={S.header}>
         <button style={S.closeBtn} onClick={onClose}>✕</button>
-        <div style={S.venueLabel}>Venue</div>
+        <div style={{ ...S.venueLabel, color: accentColor }}>Venue</div>
         <div style={S.venueName}>{venue.displayName}</div>
         {venue.address && (
           <a
@@ -102,7 +102,7 @@ export default function VenuePanel({ venue, onSelectEvent, onClose }) {
                   <div style={S.title}>{event.event_title}</div>
                 </div>
                 {formatTime(event.start_time) && (
-                  <div style={S.time}>{formatTime(event.start_time)}</div>
+                  <div style={{ ...S.time, color: accentColor }}>{formatTime(event.start_time)}</div>
                 )}
                 {hasTickets(event) && (
                   <div style={S.ticketBadge}>TIX</div>
