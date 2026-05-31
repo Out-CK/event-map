@@ -7,7 +7,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function fetchEventsByType(eventType) {
   const { data, error } = await supabase
-    .from('event_entry_database')
+    .from('event_entry_database_v2')
     .select('*')
     .eq('event_type', eventType)
     .not('date', 'like', '<%')  // exclude malformed dates like <UNKNOWN>
