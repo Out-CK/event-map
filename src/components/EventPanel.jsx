@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 const styles = {
   panel: {
@@ -135,6 +135,25 @@ const styles = {
     color: '#9090ff',
     marginLeft: '8px',
   },
+  shareBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '9px 16px',
+    background: '#1e1e2e',
+    border: '1px solid #2a2a3a',
+    borderRadius: '8px',
+    color: '#aaa',
+    fontSize: '13px',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+    marginTop: '4px',
+  },
+  shareBtnCopied: {
+    background: '#1e2e1e',
+    borderColor: '#2a4a2a',
+    color: '#90c090',
+  },
 }
 
 function formatDate(dateStr) {
@@ -158,6 +177,8 @@ function getDomain(url) {
 }
 
 export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6af7' }) {
+  const [copied, setCopied] = useState(false)
+
   if (!event) return null
 
   const ticketSources = [1, 2, 3, 4]
@@ -173,6 +194,33 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
   const timeStr = startTime
     ? endTime ? `${startTime} – ${endTime}` : startTime
     : null
+
+  async function handleShare() {
+    const lines = [
+      event.event_title,
+      event.artist ? `by ${event.artist}` : '',
+      formatDate(event.date) + (timeStr ? ` at ${timeStr}` : ''),
+      event.venue,
+      ticketSources[0] || '',
+    ].filter(Boolean).join('\n')
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: event.event_title, text: lines })
+        return
+      } catch {
+        // User cancelled or API unavailable — fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(lines)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // Clipboard not available
+    }
+  }
 
   return (
     <div style={styles.panel}>
@@ -244,6 +292,14 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
             </a>
           )}
         </div>
+
+        {/* Share */}
+        <button
+          style={{ ...styles.shareBtn, ...(copied ? styles.shareBtnCopied : {}) }}
+          onClick={handleShare}
+        >
+          {copied ? '✓ Copied to clipboard' : '↗ Share this event'}
+        </button>
 
         {/* Description */}
         {event.description && (

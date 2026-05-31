@@ -44,6 +44,18 @@ const S = {
     fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
     background: '#2a2a4a', color: '#9090ff', marginLeft: '8px', flexShrink: 0,
   },
+  highlight: { background: '#f4a24a33', color: '#f4a24a', borderRadius: '2px', padding: '0 1px' },
+}
+
+function Highlight({ text, query }) {
+  if (!query || !text) return text || null
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  return parts.map((part, i) =>
+    part.toLowerCase() === query.toLowerCase()
+      ? <mark key={i} style={S.highlight}>{part}</mark>
+      : part
+  )
 }
 
 // Group events by date
@@ -56,17 +68,20 @@ function groupByDate(events) {
   return Array.from(groups.entries()).sort((a, b) => compareDates(a[0], b[0]))
 }
 
-export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor = '#7c6af7' }) {
+export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor = '#7c6af7', searchQuery = '' }) {
   const [hoveredId, setHoveredId] = React.useState(null)
   const dateGroups = groupByDate(venue.events)
   const hasTickets = e => e.tickets_source_1
+  const q = searchQuery.trim().toLowerCase()
 
   return (
     <div style={S.panel}>
       <div style={S.header}>
         <button style={S.closeBtn} onClick={onClose}>✕</button>
         <div style={{ ...S.venueLabel, color: accentColor }}>Venue</div>
-        <div style={S.venueName}>{venue.displayName}</div>
+        <div style={S.venueName}>
+          <Highlight text={venue.displayName} query={q} />
+        </div>
         {venue.address && (
           <a
             href={`https://maps.google.com/?q=${encodeURIComponent(venue.address)}`}
@@ -114,8 +129,12 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                   />
                 )}
                 <div style={S.eventRowLeft}>
-                  <div style={S.artist}>{event.artist}</div>
-                  <div style={S.title}>{event.event_title}</div>
+                  <div style={S.artist}>
+                    <Highlight text={event.artist} query={q} />
+                  </div>
+                  <div style={S.title}>
+                    <Highlight text={event.event_title} query={q} />
+                  </div>
                 </div>
                 {formatTime(event.start_time) && (
                   <div style={{ ...S.time, color: accentColor }}>{formatTime(event.start_time)}</div>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import MapView from './components/MapView.jsx'
 import VenuePanel from './components/VenuePanel.jsx'
 import EventPanel from './components/EventPanel.jsx'
@@ -13,6 +13,31 @@ function defaultDates() {
   future.setDate(future.getDate() + 60)
   const fmt = d => d.toISOString().slice(0, 10)
   return { from: fmt(today), to: fmt(future) }
+}
+
+function todayRange() {
+  const t = new Date().toISOString().slice(0, 10)
+  return { from: t, to: t }
+}
+
+function weekendRange() {
+  const today = new Date()
+  const day = today.getDay() // 0=Sun, 5=Fri, 6=Sat
+  const fri = new Date(today)
+  const sun = new Date(today)
+  if (day <= 4) {
+    fri.setDate(today.getDate() + (5 - day))
+    sun.setDate(today.getDate() + (7 - day))
+  } else if (day === 5) {
+    sun.setDate(today.getDate() + 2)
+  } else if (day === 6) {
+    fri.setDate(today.getDate() - 1)
+    sun.setDate(today.getDate() + 1)
+  } else {
+    fri.setDate(today.getDate() - 2)
+  }
+  const fmt = d => d.toISOString().slice(0, 10)
+  return { from: fmt(fri), to: fmt(sun) }
 }
 
 const CONCERT_GENRES = [
@@ -126,6 +151,33 @@ const S = {
     background: '#2a2a3a', border: 'none', borderRadius: '6px',
     color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
   },
+  quickBtn: {
+    background: '#1e1e2e', border: '1px solid #2a2a3a', borderRadius: '6px',
+    color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
+    transition: 'all 0.15s',
+  },
+  quickBtnActive: {
+    background: '#2a2a4a', border: '1px solid #5a5a8a', color: '#c8c0ff',
+  },
+  genreBtn: {
+    background: '#1e1e2e', border: '1px solid #2a2a3a', borderRadius: '6px',
+    color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
+    position: 'relative',
+  },
+  genreDropdown: {
+    position: 'absolute', top: '100%', left: 0, marginTop: '6px',
+    background: '#16161f', border: '1px solid #2a2a3a', borderRadius: '10px',
+    padding: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px',
+    width: '320px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+  },
+  genreChip: {
+    padding: '5px 12px', borderRadius: '14px', fontSize: '12px', fontWeight: 500,
+    cursor: 'pointer', border: '1px solid #2a2a3a', background: '#1e1e2e',
+    color: '#888', transition: 'all 0.12s', whiteSpace: 'nowrap',
+  },
+  genreChipActive: {
+    background: '#2a2a5a', border: '1px solid #6a6aaa', color: '#d0d0ff',
+  },
   loadingOverlay: {
     position: 'absolute', inset: 0, background: 'rgba(15,15,20,0.88)',
     display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -133,6 +185,77 @@ const S = {
   },
   loadingText: { color: '#aaa', fontSize: '14px' },
   errorBox: { color: '#ff6b6b', background: '#2a1a1a', border: '1px solid #4a2a2a', borderRadius: '8px', padding: '16px 24px', fontSize: '14px' },
+  emptyState: {
+    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+    zIndex: 950, textAlign: 'center', pointerEvents: 'none',
+  },
+  emptyText: { color: '#555', fontSize: '16px', fontWeight: 600, marginBottom: '8px' },
+  emptySub: { color: '#3a3a4a', fontSize: '13px' },
+}
+
+function GenreMultiSelect({ genres, selected, onChange, accentColor }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  function toggle(genre) {
+    if (selected.includes(genre)) {
+      onChange(selected.filter(g => g !== genre))
+    } else {
+      onChange([...selected, genre])
+    }
+  }
+
+  const label = selected.length === 0
+    ? 'All Genres'
+    : selected.length === 1
+      ? selected[0]
+      : `${selected.length} genres`
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        style={{
+          ...S.genreBtn,
+          ...(selected.length > 0 ? { background: `${accentColor}18`, borderColor: `${accentColor}44`, color: accentColor } : {}),
+        }}
+        onClick={() => setOpen(!open)}
+      >
+        {label} {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div style={S.genreDropdown}>
+          {genres.map(g => (
+            <button
+              key={g}
+              style={{
+                ...S.genreChip,
+                ...(selected.includes(g) ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
+              }}
+              onClick={() => toggle(g)}
+            >
+              {g}
+            </button>
+          ))}
+          {selected.length > 0 && (
+            <button
+              style={{ ...S.genreChip, color: '#ff6b6b', borderColor: '#4a2a2a' }}
+              onClick={() => onChange([])}
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function App() {
@@ -143,11 +266,12 @@ export default function App() {
   const [errorByTab, setErrorByTab] = useState({ concert: null, comedy: null, theater: null, class: null, art: null })
   const [loadedTabs, setLoadedTabs] = useState(new Set())
 
-  // Filters (shared across tabs, reset on tab switch)
+  // Filters
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState(defaultDates().from)
   const [dateTo, setDateTo] = useState(defaultDates().to)
-  const [genreFilter, setGenreFilter] = useState('')
+  const [genreFilters, setGenreFilters] = useState([])
+  const [quickDate, setQuickDate] = useState(null) // 'today' | 'weekend' | null
 
   // Panel state
   const [panel, setPanel] = useState(null)
@@ -170,15 +294,37 @@ export default function App() {
     }
   }
 
-  // Load concerts on mount
   useEffect(() => { loadTab('concert') }, [])
 
   function switchTab(tabId) {
     setActiveTabId(tabId)
     setPanel(null)
     setSearch('')
-    setGenreFilter('')
+    setGenreFilters([])
+    setQuickDate(null)
     loadTab(tabId)
+  }
+
+  function applyQuickDate(type) {
+    if (quickDate === type) {
+      // Toggle off — restore defaults
+      const d = defaultDates()
+      setDateFrom(d.from)
+      setDateTo(d.to)
+      setQuickDate(null)
+      return
+    }
+    const range = type === 'today' ? todayRange() : weekendRange()
+    setDateFrom(range.from)
+    setDateTo(range.to)
+    setQuickDate(type)
+  }
+
+  function handleDateChange(setter) {
+    return (e) => {
+      setter(e.target.value)
+      setQuickDate(null) // manual date change clears quick filter
+    }
   }
 
   const events = eventsByTab[activeTabId]
@@ -192,7 +338,7 @@ export default function App() {
     return events.filter(e => {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
-      if (genreFilter && e.genre && e.genre !== genreFilter) return false
+      if (genreFilters.length > 0 && e.genre && !genreFilters.includes(e.genre)) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         return (
@@ -203,7 +349,7 @@ export default function App() {
       }
       return true
     })
-  }, [events, search, dateFrom, dateTo, genreFilter])
+  }, [events, search, dateFrom, dateTo, genreFilters])
 
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
@@ -251,11 +397,13 @@ export default function App() {
     setDateFrom(d.from)
     setDateTo(d.to)
     setSearch('')
-    setGenreFilter('')
+    setGenreFilters([])
+    setQuickDate(null)
   }
 
   const totalMapped = venueGroups.length
   const totalEvents = filteredEvents.length
+  const hasFilters = search.trim() || genreFilters.length > 0 || quickDate
 
   return (
     <div style={S.root}>
@@ -296,31 +444,39 @@ export default function App() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
+          <button
+            style={{ ...S.quickBtn, ...(quickDate === 'today' ? S.quickBtnActive : {}) }}
+            onClick={() => applyQuickDate('today')}
+          >
+            Today
+          </button>
+          <button
+            style={{ ...S.quickBtn, ...(quickDate === 'weekend' ? S.quickBtnActive : {}) }}
+            onClick={() => applyQuickDate('weekend')}
+          >
+            This Weekend
+          </button>
           <span style={S.separator}>from</span>
           <input
             type="date"
             style={{ ...S.input, ...S.dateInput }}
             value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            onChange={handleDateChange(setDateFrom)}
           />
           <span style={S.separator}>to</span>
           <input
             type="date"
             style={{ ...S.input, ...S.dateInput }}
             value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
+            onChange={handleDateChange(setDateTo)}
           />
           {activeTab.genres.length > 0 && (
-            <select
-              style={{ ...S.input, width: '140px' }}
-              value={genreFilter}
-              onChange={e => setGenreFilter(e.target.value)}
-            >
-              <option value=''>All Genres</option>
-              {activeTab.genres.map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
+            <GenreMultiSelect
+              genres={activeTab.genres}
+              selected={genreFilters}
+              onChange={setGenreFilters}
+              accentColor={activeTab.accentColor}
+            />
           )}
           <button style={S.clearBtn} onClick={resetDates}>Reset</button>
         </div>
@@ -335,6 +491,18 @@ export default function App() {
           multiColor={activeTab.multiColor}
           multiBorder={activeTab.multiBorder}
         />
+
+        {/* Empty state */}
+        {!loading && !error && totalEvents === 0 && (
+          <div style={S.emptyState}>
+            <div style={S.emptyText}>No {activeTab.statLabel} found</div>
+            <div style={S.emptySub}>
+              {hasFilters
+                ? 'Try adjusting your filters or search term'
+                : 'No events in this date range'}
+            </div>
+          </div>
+        )}
 
         {(loading || error) && (
           <div style={S.loadingOverlay}>
@@ -351,6 +519,7 @@ export default function App() {
             onSelectEvent={e => openEvent(e, panel.venue)}
             onClose={closePanel}
             accentColor={activeTab.accentColor}
+            searchQuery={search}
           />
         )}
         {panel?.type === 'event' && (
