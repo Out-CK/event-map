@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 const styles = {
   panel: {
@@ -154,6 +154,17 @@ const styles = {
     borderColor: '#2a4a2a',
     color: '#90c090',
   },
+  embedContainer: {
+    borderRadius: '12px',
+    overflow: 'hidden',
+    border: '1px solid #2a2a3a',
+    background: '#1e1e2e',
+  },
+  embedIframe: {
+    width: '100%',
+    border: 'none',
+    display: 'block',
+  },
 }
 
 function formatDate(dateStr) {
@@ -176,6 +187,86 @@ function getDomain(url) {
   }
 }
 
+/**
+ * Parse a URL to determine if it's an embeddable social post.
+ * Returns { platform, embedUrl } or null.
+ */
+function parseSocialEmbed(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace('www.', '')
+
+    // Instagram post: instagram.com/p/SHORTCODE/ or /reel/SHORTCODE/
+    if (host === 'instagram.com') {
+      const match = u.pathname.match(/^\/(p|reel)\/([A-Za-z0-9_-]+)/)
+      if (match) {
+        return {
+          platform: 'instagram',
+          embedUrl: `https://www.instagram.com/${match[1]}/${match[2]}/embed/`,
+        }
+      }
+    }
+
+    // TikTok post: tiktok.com/@user/video/POST_ID
+    if (host === 'tiktok.com') {
+      const match = u.pathname.match(/\/@[^/]+\/video\/(\d+)/)
+      if (match) {
+        return {
+          platform: 'tiktok',
+          embedUrl: `https://www.tiktok.com/embed/v2/${match[1]}`,
+        }
+      }
+    }
+  } catch {
+    // Invalid URL
+  }
+  return null
+}
+
+function SocialEmbed({ url }) {
+  const [height, setHeight] = useState(480)
+  const iframeRef = useRef(null)
+  const embed = parseSocialEmbed(url)
+
+  useEffect(() => {
+    if (!embed) return
+    // Listen for iframe resize messages (Instagram sends these)
+    function handleMessage(e) {
+      if (e.data?.type === 'MEASURE' && e.data?.details?.height) {
+        setHeight(e.data.details.height)
+      }
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [embed?.embedUrl])
+
+  if (!embed) return null
+
+  const iframeHeight = embed.platform === 'tiktok' ? 740 : height
+  const label = embed.platform === 'instagram' ? 'Instagram Post' : 'TikTok Video'
+
+  return (
+    <>
+      <div style={styles.divider} />
+      <div>
+        <div style={styles.sectionTitle}>{label}</div>
+        <div style={styles.embedContainer}>
+          <iframe
+            ref={iframeRef}
+            src={embed.embedUrl}
+            style={{ ...styles.embedIframe, height: `${iframeHeight}px` }}
+            allowFullScreen
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+            title={label}
+          />
+        </div>
+      </div>
+    </>
+  )
+}
+
 export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6af7' }) {
   const [copied, setCopied] = useState(false)
 
@@ -188,6 +279,13 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
   const infoSources = [1, 2, 3, 4]
     .map(i => event[`no_tickets_source_${i}`])
     .filter(Boolean)
+
+  // Find embeddable social post URLs from all source fields
+  const allSourceUrls = [...infoSources, ...ticketSources]
+  const socialEmbedUrl = allSourceUrls.find(url => parseSocialEmbed(url))
+
+  // Filter social post URLs out of info sources to avoid showing them twice
+  const nonEmbedInfoSources = infoSources.filter(url => !parseSocialEmbed(url))
 
   const startTime = formatTime(event.start_time)
   const endTime = formatTime(event.end_time)
@@ -301,6 +399,9 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
           {copied ? '✓ Copied to clipboard' : '↗ Share this event'}
         </button>
 
+        {/* Social Post Embed */}
+        {socialEmbedUrl && <SocialEmbed url={socialEmbedUrl} />}
+
         {/* Description */}
         {event.description && (
           <>
@@ -328,13 +429,13 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
           </>
         )}
 
-        {/* Info sources */}
-        {infoSources.length > 0 && (
+        {/* Info sources (excluding embedded social posts) */}
+        {nonEmbedInfoSources.length > 0 && (
           <>
             <div style={styles.divider} />
             <div>
               <div style={styles.sectionTitle}>ℹ More Info</div>
-              {infoSources.map((url, i) => (
+              {nonEmbedInfoSources.map((url, i) => (
                 <a key={i} href={url} target="_blank" rel="noopener noreferrer" style={styles.noTicketLink}>
                   <span>↗</span>
                   <span>{getDomain(url)}</span>
