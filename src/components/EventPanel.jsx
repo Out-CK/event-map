@@ -194,6 +194,27 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
         <div style={styles.artist}>{event.artist}</div>
       </div>
 
+      {event.media_url && (
+        <div style={{
+          width: '100%',
+          height: '220px',
+          overflow: 'hidden',
+          background: '#1e1e2e',
+          flexShrink: 0,
+        }}>
+          <img
+            src={event.media_url}
+            alt={event.event_title}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+            onError={(e) => { e.target.parentElement.style.display = 'none' }}
+          />
+        </div>
+      )}
+
       <div style={styles.body}>
         {/* Date & Time */}
         <div style={styles.infoRow}>

@@ -97,6 +97,22 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 onMouseLeave={() => setHoveredId(null)}
                 onClick={() => onSelectEvent(event)}
               >
+                {event.media_url && (
+                  <img
+                    src={event.media_url}
+                    alt=""
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '6px',
+                      objectFit: 'cover',
+                      marginRight: '12px',
+                      flexShrink: 0,
+                      background: '#1e1e2e',
+                    }}
+                    onError={(e) => { e.target.style.display = 'none' }}
+                  />
+                )}
                 <div style={S.eventRowLeft}>
                   <div style={S.artist}>{event.artist}</div>
                   <div style={S.title}>{event.event_title}</div>
