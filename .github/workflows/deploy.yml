@@ -1,27 +1,56 @@
-name: Deploy to Netlify
+name: Deploy merged app to Netlify
+
+# The map ships inside the nyc-discovery app at /map. Build the map bundle,
+# graft it onto a fresh clone of Out-CK/nyc-discovery, and deploy the merged
+# app to the nyc-discovery Netlify site. The old standalone map site just
+# gets its redirect refreshed.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: netlify-deploy-merged
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - run: npm run build:map
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-      - name: Deploy to Netlify
-        run: npx netlify-cli deploy --prod --dir dist --site "$NETLIFY_SITE_ID" --message "gha-deploy ${{ github.sha }}"
+      - name: Graft map onto nyc-discovery
+        run: |
+          git clone --depth 1 https://github.com/Out-CK/nyc-discovery.git target
+          rm -rf target/public/map
+          cp -r dist target/public/map
+      - name: Build and deploy merged app
+        working-directory: target
+        run: |
+          npm ci
+          npx -y netlify-cli@latest deploy --build --prod \
+            --site "$NETLIFY_DISCOVERY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN" \
+            --message "gha event-map@${GITHUB_SHA::7}"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_DISCOVERY_SITE_ID: ${{ secrets.NETLIFY_DISCOVERY_SITE_ID }}
+      - name: Refresh redirect on the old map site
+        run: |
+          mkdir -p redirect-dist
+          printf '/* https://nyc-discovery.netlify.app/map/ 302!\n' > redirect-dist/_redirects
+          npx -y netlify-cli@latest deploy --prod --dir redirect-dist \
+            --site "$NETLIFY_SITE_ID" --auth "$NETLIFY_AUTH_TOKEN"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
