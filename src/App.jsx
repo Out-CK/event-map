@@ -565,9 +565,7 @@ export default function App() {
           )
         })}
         <a
-          href="https://nyc-discovery.netlify.app"
-          target="_blank"
-          rel="noreferrer"
+          href="/feed"
           style={{
             ...S.tab,
             marginLeft: 'auto',
@@ -577,7 +575,7 @@ export default function App() {
             border: '1px solid #e05c6d44',
           }}
         >
-          🗽 Discovery ↗
+          🗽 Discovery
         </a>
       </div>
 
