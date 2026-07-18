@@ -48,6 +48,10 @@ const S = {
     fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
     background: '#3a2a1a', color: '#f4a24a', marginLeft: '8px', flexShrink: 0,
   },
+  newBadge: {
+    fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
+    background: '#1a2a3a', color: '#5aa5f0', marginLeft: '8px', flexShrink: 0,
+  },
   highlight: { background: '#f4a24a33', color: '#f4a24a', borderRadius: '2px', padding: '0 1px' },
 }
 
@@ -60,6 +64,17 @@ function Highlight({ text, query }) {
       ? <mark key={i} style={S.highlight}>{part}</mark>
       : part
   )
+}
+
+// "Today" when announced in the last 24h, "New" through 3 days, then nothing.
+function newness(event) {
+  const t = event.announced_at || event.created_at
+  if (!t) return null
+  const ageMs = Date.now() - new Date(t).getTime()
+  if (ageMs < 0) return null
+  if (ageMs < 24 * 3600 * 1000) return 'Today'
+  if (ageMs < 3 * 24 * 3600 * 1000) return 'New'
+  return null
 }
 
 // Group events by date
@@ -153,6 +168,11 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 {(event.buzz_score ?? 0) >= 1.0 && (
                   <div style={S.buzzBadge} title={(event.buzz_reasons || []).join(' · ') || 'Buzzing'}>
                     🔥
+                  </div>
+                )}
+                {newness(event) && (
+                  <div style={S.newBadge} title="Recently announced">
+                    🆕 {newness(event)}
                   </div>
                 )}
                 {hasTickets(event) && (

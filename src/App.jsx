@@ -4,7 +4,7 @@ import VenuePanel from './components/VenuePanel.jsx'
 import EventPanel from './components/EventPanel.jsx'
 import { fetchEventsByType } from './lib/supabase.js'
 import { geocodeEvents } from './lib/geocoder.js'
-import { normalizeVenue, cleanVenueName, compareDates, dbToInput, inputToDb } from './lib/utils.js'
+import { normalizeVenue, cleanVenueName, compareDates, inputToDb } from './lib/utils.js'
 
 // Default date range: today → 60 days out
 function defaultDates() {
@@ -40,126 +40,34 @@ function weekendRange() {
   return { from: fmt(fri), to: fmt(sun) }
 }
 
-const CONCERT_GENRES = [
-  'Alternative', 'Blues', 'Classical', 'Country', 'Electronic',
-  'Experimental', 'Folk', 'Gospel', 'Hip-Hop', 'Indie', 'Jazz',
-  'Latin', 'Metal', 'Other', 'Pop', 'Punk', 'R&B', 'Reggae', 'Rock', 'World',
-]
-
-const ART_GENRES = [
-  'Ceramics', 'Contemporary', 'Drawing', 'Installation', 'Mixed Media',
-  'Modern', 'Other', 'Painting', 'Performance', 'Photography', 'Printmaking',
-  'Sculpture', 'Street Art', 'Textile', 'Video Art',
-]
-
 // Minimum buzz_score (computed daily by the source-agent buzz scorer from
 // sighting velocity, social engagement, and on-sale momentum) for 🔥 Buzzing.
 const BUZZ_THRESHOLD = 1.0
 
-// True if the event's genre matches any selected chip. Case-insensitive, and
-// compound genres ("Shoegaze/Rock", "pop rock") match on any component word.
-// Events with no genre only match the "Other" chip.
-function genreMatches(eventGenre, selectedGenres) {
-  if (selectedGenres.length === 0) return true
-  const raw = (eventGenre || 'Other').toLowerCase()
-  const words = raw.split(/[\s/,;+]+/).filter(Boolean)
-  return selectedGenres.some(sel => {
-    const s = sel.toLowerCase()
-    return raw === s || words.includes(s)
-  })
-}
+const ACCENT = '#7c6af7'
 
-const TABS = [
-  {
-    id: 'all',
-    label: '🗽 All',
-    accentColor: '#b7a9f9',
-    markerColor: '#9aa5ce',
-    markerBorder: '#c3cbe8',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Artist, venue, or title…',
-    statLabel: 'events',
-    genres: [],
-  },
-  {
-    id: 'concert',
-    label: '🎵 Concerts',
-    accentColor: '#7c6af7',
-    markerColor: '#7c6af7',
-    markerBorder: '#a89cf7',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Artist, venue, or title…',
-    statLabel: 'concerts',
-    genres: CONCERT_GENRES,
-  },
-  {
-    id: 'comedy',
-    label: '🎤 Comedy',
-    accentColor: '#e05c8a',
-    markerColor: '#e05c8a',
-    markerBorder: '#f08aae',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Comedian, venue, or show…',
-    statLabel: 'shows',
-    genres: [],
-  },
-  {
-    id: 'theater',
-    label: '🎭 Theater',
-    accentColor: '#c0392b',
-    markerColor: '#c0392b',
-    markerBorder: '#e05c4e',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Show, theater, or production…',
-    statLabel: 'productions',
-    genres: [],
-  },
-  {
-    id: 'class',
-    label: '🎨 Classes',
-    accentColor: '#2ec4b6',
-    markerColor: '#2ec4b6',
-    markerBorder: '#5fd4cc',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Instructor, venue, or class…',
-    statLabel: 'classes',
-    genres: [],
-  },
-  {
-    id: 'art',
-    label: '🖼 Art',
-    accentColor: '#e8a045',
-    markerColor: '#e8a045',
-    markerBorder: '#f0bc72',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Artist, gallery, or exhibition…',
-    statLabel: 'exhibitions',
-    genres: ART_GENRES,
-  },
-  {
-    id: 'eating',
-    label: '🍜 Eating',
-    accentColor: '#6ab04c',
-    markerColor: '#6ab04c',
-    markerBorder: '#93d175',
-    multiColor: '#f4a24a',
-    multiBorder: '#f9c07a',
-    searchPlaceholder: 'Dinner, festival, or venue…',
-    statLabel: 'food events',
-    genres: [],
-  },
+const TYPES = [
+  { id: 'concert', label: '🎵 Concerts', color: '#7c6af7', border: '#a89cf7' },
+  { id: 'comedy', label: '🎤 Comedy', color: '#e05c8a', border: '#f08aae' },
+  { id: 'theater', label: '🎭 Theater', color: '#c0392b', border: '#e05c4e' },
+  { id: 'class', label: '🎨 Classes', color: '#2ec4b6', border: '#5fd4cc' },
+  { id: 'art', label: '🖼 Art', color: '#e8a045', border: '#f0bc72' },
+  { id: 'eating', label: '🍜 Eating', color: '#6ab04c', border: '#93d175' },
 ]
 
-// On the All tab, venue markers take the color of their dominant category
-const TYPE_COLORS = Object.fromEntries(
-  TABS.filter(t => t.id !== 'all').map(t => [t.id, { color: t.markerColor, border: t.markerBorder }])
-)
+const TYPE_COLORS = Object.fromEntries(TYPES.map(t => [t.id, { color: t.color, border: t.border }]))
+
+// How new is "new": announced today, or in the last 3 days. Older than 3 days
+// is not new at all.
+const NEW_WINDOWS = {
+  today: { label: '🆕 New today', days: 1 },
+  '3days': { label: '🆕 New (last 3 days)', days: 3 },
+}
+
+function announcedAtMs(e) {
+  const t = e.announced_at || e.created_at
+  return t ? new Date(t).getTime() : null
+}
 
 const S = {
   root: { display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f0f14' },
@@ -169,20 +77,16 @@ const S = {
     borderBottom: '1px solid #2a2a3a', flexShrink: 0, zIndex: 500,
   },
   logo: { fontSize: '15px', fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.3px' },
+  topRight: { display: 'flex', alignItems: 'center', gap: '14px' },
   stats: { fontSize: '13px', color: '#555' },
-  tabBar: {
-    display: 'flex', alignItems: 'center', gap: '4px',
-    padding: '0 20px', height: '44px', background: '#16161f',
-    borderBottom: '1px solid #2a2a3a', flexShrink: 0, zIndex: 499,
-  },
-  tab: {
-    padding: '6px 16px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
-    cursor: 'pointer', border: 'none', background: 'transparent',
-    color: '#666', transition: 'all 0.15s',
+  discoveryLink: {
+    padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
+    textDecoration: 'none', color: '#e05c6d', background: '#e05c6d18',
+    border: '1px solid #e05c6d44',
   },
   mapArea: { flex: 1, position: 'relative', overflow: 'hidden' },
   filterBar: {
-    position: 'absolute', top: '12px', left: '12px', zIndex: 900,
+    position: 'absolute', top: '12px', left: '58px', zIndex: 900,
     display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap',
   },
   input: {
@@ -190,55 +94,56 @@ const S = {
     color: '#f0f0f0', fontSize: '13px', padding: '7px 11px', outline: 'none',
     colorScheme: 'dark',
   },
-  searchInput: { width: '200px' },
   dateInput: { width: '140px' },
   separator: { color: '#444', fontSize: '12px', userSelect: 'none' },
-  clearBtn: {
-    background: '#2a2a3a', border: 'none', borderRadius: '6px',
-    color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
+  searchCircle: {
+    width: '36px', height: '36px', borderRadius: '50%', background: '#16161f',
+    border: '1px solid #2a2a3a', cursor: 'pointer', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', color: '#aaa', flexShrink: 0,
+    transition: 'all 0.15s', padding: 0,
   },
-  quickBtn: {
-    background: '#1e1e2e', border: '1px solid #2a2a3a', borderRadius: '6px',
-    color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
-    transition: 'all 0.15s',
+  searchExpanded: {
+    display: 'flex', alignItems: 'center', gap: '6px', background: '#16161f',
+    border: '1px solid #2a2a3a', borderRadius: '18px', padding: '0 6px 0 12px',
+    height: '36px',
   },
-  quickBtnActive: {
-    background: '#2a2a4a', border: '1px solid #5a5a8a', color: '#c8c0ff',
+  searchInput: {
+    background: 'transparent', border: 'none', outline: 'none', color: '#f0f0f0',
+    fontSize: '13px', width: '190px',
   },
-  genreBtn: {
-    background: '#1e1e2e', border: '1px solid #2a2a3a', borderRadius: '6px',
-    color: '#aaa', fontSize: '12px', padding: '7px 12px', cursor: 'pointer',
-    position: 'relative',
+  ddBtn: {
+    background: '#1e1e2e', border: '1px solid #2a2a3a', borderRadius: '18px',
+    color: '#aaa', fontSize: '13px', fontWeight: 600, padding: '8px 14px',
+    cursor: 'pointer', whiteSpace: 'nowrap',
   },
-  genreDropdown: {
+  ddPanel: {
     position: 'absolute', top: '100%', left: 0, marginTop: '6px',
-    background: '#16161f', border: '1px solid #2a2a3a', borderRadius: '10px',
-    padding: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px',
-    width: '320px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+    background: '#16161f', border: '1px solid #2a2a3a', borderRadius: '12px',
+    padding: '8px', display: 'flex', flexDirection: 'column', gap: '2px',
+    minWidth: '210px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
   },
-  filterPanel: {
-    position: 'absolute', top: '100%', left: 0, marginTop: '6px',
-    background: '#16161f', border: '1px solid #2a2a3a', borderRadius: '10px',
-    padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px',
-    width: '340px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+  ddItem: {
+    display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px',
+    borderRadius: '8px', fontSize: '13px', color: '#ccc', cursor: 'pointer',
+    background: 'transparent', border: 'none', textAlign: 'left', width: '100%',
   },
-  sectionLabel: {
-    fontSize: '11px', fontWeight: 700, color: '#666', textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+  ddItemActive: { background: `${ACCENT}1e`, color: '#d6cfff' },
+  check: { width: '16px', textAlign: 'center', flexShrink: 0 },
+  dot: { width: '9px', height: '9px', borderRadius: '50%', flexShrink: 0 },
+  ddDivider: { height: '1px', background: '#2a2a3a', margin: '6px 4px' },
+  ddLabel: {
+    fontSize: '10px', fontWeight: 700, color: '#555', textTransform: 'uppercase',
+    letterSpacing: '0.8px', padding: '6px 10px 2px',
   },
-  rowWrap: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' },
   filterBadge: {
     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
     minWidth: '16px', height: '16px', borderRadius: '8px', fontSize: '10px',
     fontWeight: 700, padding: '0 4px', marginLeft: '6px',
+    background: ACCENT, color: '#0f0f14',
   },
-  genreChip: {
-    padding: '5px 12px', borderRadius: '14px', fontSize: '12px', fontWeight: 500,
-    cursor: 'pointer', border: '1px solid #2a2a3a', background: '#1e1e2e',
-    color: '#888', transition: 'all 0.12s', whiteSpace: 'nowrap',
-  },
-  genreChipActive: {
-    background: '#2a2a5a', border: '1px solid #6a6aaa', color: '#d0d0ff',
+  clearBtn: {
+    background: 'none', border: 'none', color: '#666', fontSize: '12px',
+    cursor: 'pointer', padding: '6px 10px', textAlign: 'left',
   },
   loadingOverlay: {
     position: 'absolute', inset: 0, background: 'rgba(15,15,20,0.88)',
@@ -255,12 +160,9 @@ const S = {
   emptySub: { color: '#3a3a4a', fontSize: '13px' },
 }
 
-function FiltersDropdown({
-  accentColor, genres, quickDate, onQuickDate, dateFrom, dateTo, onFromChange,
-  onToChange, genreFilters, onGenresChange, freeOnly, onFreeChange,
-  justAnnounced, onJustAnnouncedChange, buzzingOnly, onBuzzingChange,
-  onReset, activeCount,
-}) {
+// ── Generic dropdown shell ───────────────────────────────────────────────────
+
+function Dropdown({ label, active, badge, children }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -272,181 +174,124 @@ function FiltersDropdown({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function toggleGenre(genre) {
-    if (genreFilters.includes(genre)) {
-      onGenresChange(genreFilters.filter(g => g !== genre))
-    } else {
-      onGenresChange([...genreFilters, genre])
-    }
-  }
-
-  const active = activeCount > 0
-
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         style={{
-          ...S.genreBtn,
-          ...(active ? { background: `${accentColor}18`, borderColor: `${accentColor}44`, color: accentColor } : {}),
+          ...S.ddBtn,
+          ...(active ? { background: `${ACCENT}18`, borderColor: `${ACCENT}44`, color: ACCENT } : {}),
         }}
         onClick={() => setOpen(!open)}
       >
-        Filters
-        {active && (
-          <span style={{ ...S.filterBadge, background: accentColor, color: '#0f0f14' }}>
-            {activeCount}
-          </span>
-        )}
+        {label}
+        {badge > 0 && <span style={S.filterBadge}>{badge}</span>}
         {' '}{open ? '▴' : '▾'}
       </button>
-      {open && (
-        <div style={S.filterPanel}>
-          <div>
-            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>When</div>
-            <div style={S.rowWrap}>
-              <button
-                style={{ ...S.quickBtn, ...(quickDate === 'today' ? S.quickBtnActive : {}) }}
-                onClick={() => onQuickDate('today')}
-              >
-                Today
-              </button>
-              <button
-                style={{ ...S.quickBtn, ...(quickDate === 'weekend' ? S.quickBtnActive : {}) }}
-                onClick={() => onQuickDate('weekend')}
-              >
-                This Weekend
-              </button>
-            </div>
-            <div style={{ ...S.rowWrap, marginTop: '8px' }}>
-              <span style={S.separator}>from</span>
-              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateFrom} onChange={onFromChange} />
-              <span style={S.separator}>to</span>
-              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateTo} onChange={onToChange} />
-            </div>
-          </div>
+      {open && <div style={S.ddPanel}>{children}</div>}
+    </div>
+  )
+}
 
-          <div>
-            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Price</div>
-            <button
-              style={{
-                ...S.genreChip,
-                ...(freeOnly ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
-              }}
-              onClick={() => onFreeChange(!freeOnly)}
-            >
-              🎟 Free events only
-            </button>
-          </div>
+function Item({ active, onClick, children, color }) {
+  return (
+    <button style={{ ...S.ddItem, ...(active ? S.ddItemActive : {}) }} onClick={onClick}>
+      <span style={S.check}>{active ? '✓' : ''}</span>
+      {color && <span style={{ ...S.dot, background: color }} />}
+      <span>{children}</span>
+    </button>
+  )
+}
 
-          <div>
-            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Discovery</div>
-            <div style={S.rowWrap}>
-              <button
-                style={{
-                  ...S.genreChip,
-                  ...(justAnnounced ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
-                }}
-                onClick={() => onJustAnnouncedChange(!justAnnounced)}
-              >
-                🆕 Just announced
-              </button>
-              <button
-                style={{
-                  ...S.genreChip,
-                  ...(buzzingOnly ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
-                }}
-                onClick={() => onBuzzingChange(!buzzingOnly)}
-              >
-                🔥 Buzzing
-              </button>
-            </div>
-          </div>
+// ── Search: a circle that expands into an input ──────────────────────────────
 
-          {genres.length > 0 && (
-            <div>
-              <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Genre</div>
-              <div style={S.rowWrap}>
-                {genres.map(g => (
-                  <button
-                    key={g}
-                    style={{
-                      ...S.genreChip,
-                      ...(genreFilters.includes(g) ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
-                    }}
-                    onClick={() => toggleGenre(g)}
-                  >
-                    {g}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
+function SearchControl({ value, onChange }) {
+  const [open, setOpen] = useState(false)
+  const inputRef = useRef(null)
 
-          <button style={{ ...S.clearBtn, alignSelf: 'flex-start' }} onClick={onReset}>
-            Reset all filters
-          </button>
-        </div>
-      )}
+  useEffect(() => {
+    if (open) inputRef.current?.focus()
+  }, [open])
+
+  if (!open && !value) {
+    return (
+      <button style={S.searchCircle} onClick={() => setOpen(true)} title="Search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="21" y1="21" x2="16.3" y2="16.3" />
+        </svg>
+      </button>
+    )
+  }
+
+  return (
+    <div style={S.searchExpanded}>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2.4" strokeLinecap="round">
+        <circle cx="11" cy="11" r="7" />
+        <line x1="21" y1="21" x2="16.3" y2="16.3" />
+      </svg>
+      <input
+        ref={inputRef}
+        style={S.searchInput}
+        placeholder="Artist, venue, or title…"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onBlur={() => { if (!value) setOpen(false) }}
+      />
+      <button
+        style={{ ...S.searchCircle, width: '24px', height: '24px', border: 'none', fontSize: '13px' }}
+        onClick={() => { onChange(''); setOpen(false) }}
+        title="Clear"
+      >
+        ✕
+      </button>
     </div>
   )
 }
 
 export default function App() {
-  const [activeTabId, setActiveTabId] = useState('all')
-  const [eventsByTab, setEventsByTab] = useState({ all: [], concert: [], comedy: [], theater: [], class: [], art: [], eating: [] })
-  const [geocacheByTab, setGeocacheByTab] = useState({ all: {}, concert: {}, comedy: {}, theater: {}, class: {}, art: {}, eating: {} })
-  const [loadingByTab, setLoadingByTab] = useState({ all: true, concert: false, comedy: false, theater: false, class: false, art: false, eating: false })
-  const [errorByTab, setErrorByTab] = useState({ all: null, concert: null, comedy: null, theater: null, class: null, art: null, eating: null })
-  const [loadedTabs, setLoadedTabs] = useState(new Set())
+  const [events, setEvents] = useState([])
+  const [geocache, setGeocache] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Filters
+  // Controls
   const [search, setSearch] = useState('')
+  const [typeFilters, setTypeFilters] = useState([]) // [] = All
   const [dateFrom, setDateFrom] = useState(defaultDates().from)
   const [dateTo, setDateTo] = useState(defaultDates().to)
-  const [genreFilters, setGenreFilters] = useState([])
   const [quickDate, setQuickDate] = useState(null) // 'today' | 'weekend' | null
-  const [justAnnounced, setJustAnnounced] = useState(false) // announced in the last 7 days
-  const [buzzingOnly, setBuzzingOnly] = useState(false) // buzz_score above threshold
   const [freeOnly, setFreeOnly] = useState(false)
+  const [buzzingOnly, setBuzzingOnly] = useState(false)
+  const [newWindow, setNewWindow] = useState(null) // 'today' | '3days' | null
 
   // Panel state
   const [panel, setPanel] = useState(null)
 
-  const activeTab = TABS.find(t => t.id === activeTabId)
+  useEffect(() => {
+    fetchEventsByType('all')
+      .then(data => {
+        const { cache } = geocodeEvents(data, () => {})
+        setEvents(data)
+        setGeocache(cache)
+      })
+      .catch(e => setError(e.message))
+      .finally(() => setLoading(false))
+  }, [])
 
-  async function loadTab(tabId) {
-    if (loadedTabs.has(tabId)) return
-    setLoadingByTab(prev => ({ ...prev, [tabId]: true }))
-    try {
-      const data = await fetchEventsByType(tabId)
-      const { cache } = geocodeEvents(data, () => {})
-      setEventsByTab(prev => ({ ...prev, [tabId]: data }))
-      setGeocacheByTab(prev => ({ ...prev, [tabId]: cache }))
-      setLoadedTabs(prev => new Set([...prev, tabId]))
-    } catch (e) {
-      setErrorByTab(prev => ({ ...prev, [tabId]: e.message }))
-    } finally {
-      setLoadingByTab(prev => ({ ...prev, [tabId]: false }))
-    }
+  function toggleType(id) {
+    setPanel(null)
+    setTypeFilters(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
   }
 
-  useEffect(() => { loadTab('all') }, [])
-
-  function switchTab(tabId) {
-    setActiveTabId(tabId)
+  function selectAllTypes() {
     setPanel(null)
-    setSearch('')
-    setGenreFilters([])
-    setQuickDate(null)
-    setFreeOnly(false)
-    setJustAnnounced(false)
-    setBuzzingOnly(false)
-    loadTab(tabId)
+    setTypeFilters([])
   }
 
   function applyQuickDate(type) {
     if (quickDate === type) {
-      // Toggle off — restore defaults
       const d = defaultDates()
       setDateFrom(d.from)
       setDateTo(d.to)
@@ -462,32 +307,26 @@ export default function App() {
   function handleDateChange(setter) {
     return (e) => {
       setter(e.target.value)
-      setQuickDate(null) // manual date change clears quick filter
+      setQuickDate(null)
     }
   }
-
-  const events = eventsByTab[activeTabId]
-  const geocache = geocacheByTab[activeTabId]
-  const loading = loadingByTab[activeTabId]
-  const error = errorByTab[activeTabId]
 
   const filteredEvents = useMemo(() => {
     const fromDb = inputToDb(dateFrom)
     const toDb = inputToDb(dateTo)
-    const announcedCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
+    const newCutoff = newWindow
+      ? Date.now() - NEW_WINDOWS[newWindow].days * 24 * 60 * 60 * 1000
+      : null
     return events.filter(e => {
+      if (typeFilters.length > 0 && !typeFilters.includes(e.event_type)) return false
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
       if (freeOnly && e.is_free !== true) return false
-      if (justAnnounced) {
-        // announced_at is the pipeline's estimate of the real announcement time
-        // (social post date or hash-gated crawl bound); created_at is the
-        // legacy fallback for rows that predate announcement tracking.
-        const announced = e.announced_at || e.created_at
-        if (!announced || new Date(announced).getTime() < announcedCutoff) return false
-      }
       if (buzzingOnly && (e.buzz_score ?? 0) < BUZZ_THRESHOLD) return false
-      if (!genreMatches(e.genre, genreFilters)) return false
+      if (newCutoff) {
+        const announced = announcedAtMs(e)
+        if (!announced || announced < newCutoff) return false
+      }
       if (search.trim()) {
         const q = search.toLowerCase()
         return (
@@ -498,7 +337,7 @@ export default function App() {
       }
       return true
     })
-  }, [events, search, dateFrom, dateTo, genreFilters, freeOnly, justAnnounced, buzzingOnly])
+  }, [events, search, typeFilters, dateFrom, dateTo, freeOnly, buzzingOnly, newWindow])
 
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
@@ -523,17 +362,15 @@ export default function App() {
       g.events.sort((a, b) => compareDates(a.date, b.date) || (a.start_time || '').localeCompare(b.start_time || ''))
     }
     const allGroups = Array.from(map.values())
-    if (activeTabId === 'all') {
-      // Color each venue dot by its dominant category so the mix stays legible
-      for (const g of allGroups) {
-        const counts = {}
-        for (const e of g.events) counts[e.event_type] = (counts[e.event_type] || 0) + 1
-        const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
-        const tc = TYPE_COLORS[dominant]
-        if (tc) {
-          g.markerColor = tc.color
-          g.markerBorder = tc.border
-        }
+    // Color each venue dot by its dominant category so the mix stays legible
+    for (const g of allGroups) {
+      const counts = {}
+      for (const e of g.events) counts[e.event_type] = (counts[e.event_type] || 0) + 1
+      const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
+      const tc = TYPE_COLORS[dominant]
+      if (tc) {
+        g.markerColor = tc.color
+        g.markerBorder = tc.border
       }
     }
     const venueGroups = allGroups.filter(g => g.coords)
@@ -541,7 +378,7 @@ export default function App() {
     const unmappedCount = unmappedGroups.length
     const unmappedEventCount = unmappedGroups.reduce((sum, g) => sum + g.events.length, 0)
     return { venueGroups, unmappedCount, unmappedEventCount }
-  }, [filteredEvents, geocache, activeTabId])
+  }, [filteredEvents, geocache])
 
   const selectedVenueKey = panel?.type === 'venue' ? panel.venue.key
     : panel?.type === 'event' ? panel.backVenue?.key : null
@@ -554,116 +391,131 @@ export default function App() {
   }
   function closePanel() { setPanel(null) }
 
-  function resetDates() {
-    const d = defaultDates()
-    setDateFrom(d.from)
-    setDateTo(d.to)
-    setSearch('')
-    setGenreFilters([])
-    setQuickDate(null)
-    setFreeOnly(false)
-    setJustAnnounced(false)
-    setBuzzingOnly(false)
-  }
+  // Dropdown labels
+  const typeLabel = typeFilters.length === 0
+    ? 'All types'
+    : typeFilters.length === 1
+      ? TYPES.find(t => t.id === typeFilters[0])?.label ?? '1 type'
+      : `${typeFilters.length} types`
+
+  const defaults = defaultDates()
+  const datesCustomized = !quickDate && (dateFrom !== defaults.from || dateTo !== defaults.to)
+  const timeLabel = quickDate === 'today' ? 'Today'
+    : quickDate === 'weekend' ? 'This weekend'
+      : datesCustomized ? 'Custom dates' : 'Time'
+
+  const tagCount = (freeOnly ? 1 : 0) + (buzzingOnly ? 1 : 0) + (newWindow ? 1 : 0)
 
   const totalMapped = venueGroups.length
   const totalEvents = filteredEvents.length
-  const defaults = defaultDates()
-  const datesCustomized = !quickDate && (dateFrom !== defaults.from || dateTo !== defaults.to)
-  const activeFilterCount =
-    (quickDate || datesCustomized ? 1 : 0) + genreFilters.length + (freeOnly ? 1 : 0) +
-    (justAnnounced ? 1 : 0) + (buzzingOnly ? 1 : 0)
-  const hasFilters = search.trim() || activeFilterCount > 0
+  const hasFilters = search.trim() || typeFilters.length > 0 || quickDate || datesCustomized || tagCount > 0
 
   return (
     <div style={S.root}>
       <div style={S.topbar}>
         <div style={S.logo}>🗽 NYC Events</div>
-        <div style={S.stats}>
-          {loading
-            ? 'Loading…'
-            : `${totalEvents} ${activeTab.statLabel} · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
+        <div style={S.topRight}>
+          <div style={S.stats}>
+            {loading
+              ? 'Loading…'
+              : `${totalEvents} events · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
+          </div>
+          <a href="/feed" style={S.discoveryLink}>🗽 Discovery</a>
         </div>
-      </div>
-
-      <div style={S.tabBar}>
-        {TABS.map(tab => {
-          const isActive = tab.id === activeTabId
-          return (
-            <button
-              key={tab.id}
-              style={{
-                ...S.tab,
-                background: isActive ? `${tab.accentColor}22` : 'transparent',
-                color: isActive ? tab.accentColor : '#666',
-                border: isActive ? `1px solid ${tab.accentColor}44` : '1px solid transparent',
-              }}
-              onClick={() => switchTab(tab.id)}
-            >
-              {tab.label}
-            </button>
-          )
-        })}
-        <a
-          href="/feed"
-          style={{
-            ...S.tab,
-            marginLeft: 'auto',
-            textDecoration: 'none',
-            color: '#e05c6d',
-            background: '#e05c6d18',
-            border: '1px solid #e05c6d44',
-          }}
-        >
-          🗽 Discovery
-        </a>
       </div>
 
       <div style={S.mapArea}>
         <div style={S.filterBar}>
-          <input
-            style={{ ...S.input, ...S.searchInput }}
-            placeholder={activeTab.searchPlaceholder}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <FiltersDropdown
-            accentColor={activeTab.accentColor}
-            genres={activeTab.genres}
-            quickDate={quickDate}
-            onQuickDate={applyQuickDate}
-            dateFrom={dateFrom}
-            dateTo={dateTo}
-            onFromChange={handleDateChange(setDateFrom)}
-            onToChange={handleDateChange(setDateTo)}
-            genreFilters={genreFilters}
-            onGenresChange={setGenreFilters}
-            freeOnly={freeOnly}
-            onFreeChange={setFreeOnly}
-            justAnnounced={justAnnounced}
-            onJustAnnouncedChange={setJustAnnounced}
-            buzzingOnly={buzzingOnly}
-            onBuzzingChange={setBuzzingOnly}
-            onReset={resetDates}
-            activeCount={activeFilterCount}
-          />
+          <SearchControl value={search} onChange={setSearch} />
+
+          <Dropdown label={typeLabel} active={typeFilters.length > 0}>
+            <Item active={typeFilters.length === 0} onClick={selectAllTypes}>
+              🗽 All
+            </Item>
+            <div style={S.ddDivider} />
+            {TYPES.map(t => (
+              <Item
+                key={t.id}
+                active={typeFilters.includes(t.id)}
+                onClick={() => toggleType(t.id)}
+                color={t.color}
+              >
+                {t.label}
+              </Item>
+            ))}
+          </Dropdown>
+
+          <Dropdown label={timeLabel} active={Boolean(quickDate || datesCustomized)}>
+            <Item active={!quickDate && !datesCustomized} onClick={() => {
+              const d = defaultDates()
+              setDateFrom(d.from)
+              setDateTo(d.to)
+              setQuickDate(null)
+            }}>
+              Any time (next 60 days)
+            </Item>
+            <Item active={quickDate === 'today'} onClick={() => applyQuickDate('today')}>
+              Today
+            </Item>
+            <Item active={quickDate === 'weekend'} onClick={() => applyQuickDate('weekend')}>
+              This weekend
+            </Item>
+            <div style={S.ddDivider} />
+            <div style={S.ddLabel}>Custom range</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px 8px' }}>
+              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateFrom} onChange={handleDateChange(setDateFrom)} />
+              <span style={S.separator}>→</span>
+              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateTo} onChange={handleDateChange(setDateTo)} />
+            </div>
+          </Dropdown>
+
+          <Dropdown label="Tags" active={tagCount > 0} badge={tagCount}>
+            <Item active={freeOnly} onClick={() => setFreeOnly(!freeOnly)}>
+              🎟 Free events
+            </Item>
+            <Item active={buzzingOnly} onClick={() => setBuzzingOnly(!buzzingOnly)}>
+              🔥 Buzzing
+            </Item>
+            <div style={S.ddDivider} />
+            <div style={S.ddLabel}>New</div>
+            {Object.entries(NEW_WINDOWS).map(([key, w]) => (
+              <Item
+                key={key}
+                active={newWindow === key}
+                onClick={() => setNewWindow(newWindow === key ? null : key)}
+              >
+                {w.label}
+              </Item>
+            ))}
+            {tagCount > 0 && (
+              <>
+                <div style={S.ddDivider} />
+                <button
+                  style={S.clearBtn}
+                  onClick={() => { setFreeOnly(false); setBuzzingOnly(false); setNewWindow(null) }}
+                >
+                  Clear tags
+                </button>
+              </>
+            )}
+          </Dropdown>
         </div>
 
         <MapView
           venueGroups={venueGroups}
           selectedVenueKey={selectedVenueKey}
           onSelectVenue={openVenue}
-          accentColor={activeTab.accentColor}
-          markerColor={activeTab.markerColor}
-          markerBorder={activeTab.markerBorder}
-          multiColor={activeTab.multiColor}
-          multiBorder={activeTab.multiBorder}
+          accentColor={ACCENT}
+          markerColor="#9aa5ce"
+          markerBorder="#c3cbe8"
+          multiColor="#f4a24a"
+          multiBorder="#f9c07a"
         />
 
         {/* Empty state */}
         {!loading && !error && totalEvents === 0 && (
           <div style={S.emptyState}>
-            <div style={S.emptyText}>No {activeTab.statLabel} found</div>
+            <div style={S.emptyText}>No events found</div>
             <div style={S.emptySub}>
               {hasFilters
                 ? 'Try adjusting your filters or search term'
@@ -676,7 +528,7 @@ export default function App() {
           <div style={S.loadingOverlay}>
             {error
               ? <div style={S.errorBox}>Error: {error}</div>
-              : <div style={S.loadingText}>Fetching {activeTab.statLabel}…</div>
+              : <div style={S.loadingText}>Fetching events…</div>
             }
           </div>
         )}
@@ -686,9 +538,9 @@ export default function App() {
             venue={panel.venue}
             onSelectEvent={e => openEvent(e, panel.venue)}
             onClose={closePanel}
-            accentColor={activeTab.accentColor}
+            accentColor={ACCENT}
             searchQuery={search}
-            showTypes={activeTabId === 'all'}
+            showTypes={typeFilters.length !== 1}
           />
         )}
         {panel?.type === 'event' && (
@@ -696,7 +548,7 @@ export default function App() {
             event={panel.event}
             onBack={goBack}
             onClose={closePanel}
-            accentColor={activeTab.accentColor}
+            accentColor={ACCENT}
           />
         )}
       </div>
