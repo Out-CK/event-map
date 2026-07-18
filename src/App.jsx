@@ -113,6 +113,18 @@ const TABS = [
     statLabel: 'exhibitions',
     genres: ART_GENRES,
   },
+  {
+    id: 'eating',
+    label: '🍜 Eating',
+    accentColor: '#6ab04c',
+    markerColor: '#6ab04c',
+    markerBorder: '#93d175',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Dinner, festival, or venue…',
+    statLabel: 'food events',
+    genres: [],
+  },
 ]
 
 const S = {
@@ -260,10 +272,10 @@ function GenreMultiSelect({ genres, selected, onChange, accentColor }) {
 
 export default function App() {
   const [activeTabId, setActiveTabId] = useState('concert')
-  const [eventsByTab, setEventsByTab] = useState({ concert: [], comedy: [], theater: [], class: [], art: [] })
-  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, comedy: {}, theater: {}, class: {}, art: {} })
-  const [loadingByTab, setLoadingByTab] = useState({ concert: true, comedy: false, theater: false, class: false, art: false })
-  const [errorByTab, setErrorByTab] = useState({ concert: null, comedy: null, theater: null, class: null, art: null })
+  const [eventsByTab, setEventsByTab] = useState({ concert: [], comedy: [], theater: [], class: [], art: [], eating: [] })
+  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, comedy: {}, theater: {}, class: {}, art: {}, eating: {} })
+  const [loadingByTab, setLoadingByTab] = useState({ concert: true, comedy: false, theater: false, class: false, art: false, eating: false })
+  const [errorByTab, setErrorByTab] = useState({ concert: null, comedy: null, theater: null, class: null, art: null, eating: null })
   const [loadedTabs, setLoadedTabs] = useState(new Set())
 
   // Filters
