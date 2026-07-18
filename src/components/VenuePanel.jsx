@@ -72,7 +72,11 @@ function groupByDate(events) {
   return Array.from(groups.entries()).sort((a, b) => compareDates(a[0], b[0]))
 }
 
-export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor = '#7c6af7', searchQuery = '' }) {
+const TYPE_EMOJI = {
+  concert: '🎵', comedy: '🎤', theater: '🎭', class: '🎨', art: '🖼', eating: '🍜',
+}
+
+export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor = '#7c6af7', searchQuery = '', showTypes = false }) {
   const [hoveredId, setHoveredId] = React.useState(null)
   const dateGroups = groupByDate(venue.events)
   const hasTickets = e => e.tickets_source_1
@@ -134,6 +138,9 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 )}
                 <div style={S.eventRowLeft}>
                   <div style={S.artist}>
+                    {showTypes && TYPE_EMOJI[event.event_type] && (
+                      <span style={{ marginRight: '6px' }}>{TYPE_EMOJI[event.event_type]}</span>
+                    )}
                     <Highlight text={event.artist} query={q} />
                   </div>
                   <div style={S.title}>

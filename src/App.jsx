@@ -71,6 +71,18 @@ function genreMatches(eventGenre, selectedGenres) {
 
 const TABS = [
   {
+    id: 'all',
+    label: '🗽 All',
+    accentColor: '#b7a9f9',
+    markerColor: '#9aa5ce',
+    markerBorder: '#c3cbe8',
+    multiColor: '#f4a24a',
+    multiBorder: '#f9c07a',
+    searchPlaceholder: 'Artist, venue, or title…',
+    statLabel: 'events',
+    genres: [],
+  },
+  {
     id: 'concert',
     label: '🎵 Concerts',
     accentColor: '#7c6af7',
@@ -143,6 +155,11 @@ const TABS = [
     genres: [],
   },
 ]
+
+// On the All tab, venue markers take the color of their dominant category
+const TYPE_COLORS = Object.fromEntries(
+  TABS.filter(t => t.id !== 'all').map(t => [t.id, { color: t.markerColor, border: t.markerBorder }])
+)
 
 const S = {
   root: { display: 'flex', flexDirection: 'column', height: '100vh', background: '#0f0f14' },
@@ -375,11 +392,11 @@ function FiltersDropdown({
 }
 
 export default function App() {
-  const [activeTabId, setActiveTabId] = useState('concert')
-  const [eventsByTab, setEventsByTab] = useState({ concert: [], comedy: [], theater: [], class: [], art: [], eating: [] })
-  const [geocacheByTab, setGeocacheByTab] = useState({ concert: {}, comedy: {}, theater: {}, class: {}, art: {}, eating: {} })
-  const [loadingByTab, setLoadingByTab] = useState({ concert: true, comedy: false, theater: false, class: false, art: false, eating: false })
-  const [errorByTab, setErrorByTab] = useState({ concert: null, comedy: null, theater: null, class: null, art: null, eating: null })
+  const [activeTabId, setActiveTabId] = useState('all')
+  const [eventsByTab, setEventsByTab] = useState({ all: [], concert: [], comedy: [], theater: [], class: [], art: [], eating: [] })
+  const [geocacheByTab, setGeocacheByTab] = useState({ all: {}, concert: {}, comedy: {}, theater: {}, class: {}, art: {}, eating: {} })
+  const [loadingByTab, setLoadingByTab] = useState({ all: true, concert: false, comedy: false, theater: false, class: false, art: false, eating: false })
+  const [errorByTab, setErrorByTab] = useState({ all: null, concert: null, comedy: null, theater: null, class: null, art: null, eating: null })
   const [loadedTabs, setLoadedTabs] = useState(new Set())
 
   // Filters
@@ -413,7 +430,7 @@ export default function App() {
     }
   }
 
-  useEffect(() => { loadTab('concert') }, [])
+  useEffect(() => { loadTab('all') }, [])
 
   function switchTab(tabId) {
     setActiveTabId(tabId)
@@ -506,12 +523,25 @@ export default function App() {
       g.events.sort((a, b) => compareDates(a.date, b.date) || (a.start_time || '').localeCompare(b.start_time || ''))
     }
     const allGroups = Array.from(map.values())
+    if (activeTabId === 'all') {
+      // Color each venue dot by its dominant category so the mix stays legible
+      for (const g of allGroups) {
+        const counts = {}
+        for (const e of g.events) counts[e.event_type] = (counts[e.event_type] || 0) + 1
+        const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
+        const tc = TYPE_COLORS[dominant]
+        if (tc) {
+          g.markerColor = tc.color
+          g.markerBorder = tc.border
+        }
+      }
+    }
     const venueGroups = allGroups.filter(g => g.coords)
     const unmappedGroups = allGroups.filter(g => !g.coords)
     const unmappedCount = unmappedGroups.length
     const unmappedEventCount = unmappedGroups.reduce((sum, g) => sum + g.events.length, 0)
     return { venueGroups, unmappedCount, unmappedEventCount }
-  }, [filteredEvents, geocache])
+  }, [filteredEvents, geocache, activeTabId])
 
   const selectedVenueKey = panel?.type === 'venue' ? panel.venue.key
     : panel?.type === 'event' ? panel.backVenue?.key : null
@@ -658,6 +688,7 @@ export default function App() {
             onClose={closePanel}
             accentColor={activeTab.accentColor}
             searchQuery={search}
+            showTypes={activeTabId === 'all'}
           />
         )}
         {panel?.type === 'event' && (

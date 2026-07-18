@@ -54,8 +54,8 @@ function VenueCluster({ venueGroups, onSelectVenue, markerColor, markerBorder, m
       const multi = group.events.length > 1
       const r = multi ? Math.min(7 + group.events.length, 13) : 7
       const size = r * 2
-      const fill = multi ? multiColor : markerColor
-      const border = multi ? multiBorder : markerBorder
+      const fill = multi ? multiColor : (group.markerColor || markerColor)
+      const border = multi ? multiBorder : (group.markerBorder || markerBorder)
 
       const marker = L.marker([group.coords.lat, group.coords.lng], {
         icon: L.divIcon({
