@@ -182,6 +182,22 @@ const S = {
     padding: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px',
     width: '320px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
   },
+  filterPanel: {
+    position: 'absolute', top: '100%', left: 0, marginTop: '6px',
+    background: '#16161f', border: '1px solid #2a2a3a', borderRadius: '10px',
+    padding: '14px', display: 'flex', flexDirection: 'column', gap: '12px',
+    width: '340px', zIndex: 1000, boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+  },
+  sectionLabel: {
+    fontSize: '11px', fontWeight: 700, color: '#666', textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  rowWrap: { display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' },
+  filterBadge: {
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    minWidth: '16px', height: '16px', borderRadius: '8px', fontSize: '10px',
+    fontWeight: 700, padding: '0 4px', marginLeft: '6px',
+  },
   genreChip: {
     padding: '5px 12px', borderRadius: '14px', fontSize: '12px', fontWeight: 500,
     cursor: 'pointer', border: '1px solid #2a2a3a', background: '#1e1e2e',
@@ -205,7 +221,10 @@ const S = {
   emptySub: { color: '#3a3a4a', fontSize: '13px' },
 }
 
-function GenreMultiSelect({ genres, selected, onChange, accentColor }) {
+function FiltersDropdown({
+  accentColor, genres, quickDate, onQuickDate, dateFrom, dateTo, onFromChange,
+  onToChange, genreFilters, onGenresChange, freeOnly, onFreeChange, onReset, activeCount,
+}) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -217,53 +236,95 @@ function GenreMultiSelect({ genres, selected, onChange, accentColor }) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
-  function toggle(genre) {
-    if (selected.includes(genre)) {
-      onChange(selected.filter(g => g !== genre))
+  function toggleGenre(genre) {
+    if (genreFilters.includes(genre)) {
+      onGenresChange(genreFilters.filter(g => g !== genre))
     } else {
-      onChange([...selected, genre])
+      onGenresChange([...genreFilters, genre])
     }
   }
 
-  const label = selected.length === 0
-    ? 'All Genres'
-    : selected.length === 1
-      ? selected[0]
-      : `${selected.length} genres`
+  const active = activeCount > 0
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <button
         style={{
           ...S.genreBtn,
-          ...(selected.length > 0 ? { background: `${accentColor}18`, borderColor: `${accentColor}44`, color: accentColor } : {}),
+          ...(active ? { background: `${accentColor}18`, borderColor: `${accentColor}44`, color: accentColor } : {}),
         }}
         onClick={() => setOpen(!open)}
       >
-        {label} {open ? '▴' : '▾'}
+        Filters
+        {active && (
+          <span style={{ ...S.filterBadge, background: accentColor, color: '#0f0f14' }}>
+            {activeCount}
+          </span>
+        )}
+        {' '}{open ? '▴' : '▾'}
       </button>
       {open && (
-        <div style={S.genreDropdown}>
-          {genres.map(g => (
+        <div style={S.filterPanel}>
+          <div>
+            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>When</div>
+            <div style={S.rowWrap}>
+              <button
+                style={{ ...S.quickBtn, ...(quickDate === 'today' ? S.quickBtnActive : {}) }}
+                onClick={() => onQuickDate('today')}
+              >
+                Today
+              </button>
+              <button
+                style={{ ...S.quickBtn, ...(quickDate === 'weekend' ? S.quickBtnActive : {}) }}
+                onClick={() => onQuickDate('weekend')}
+              >
+                This Weekend
+              </button>
+            </div>
+            <div style={{ ...S.rowWrap, marginTop: '8px' }}>
+              <span style={S.separator}>from</span>
+              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateFrom} onChange={onFromChange} />
+              <span style={S.separator}>to</span>
+              <input type="date" style={{ ...S.input, ...S.dateInput }} value={dateTo} onChange={onToChange} />
+            </div>
+          </div>
+
+          <div>
+            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Price</div>
             <button
-              key={g}
               style={{
                 ...S.genreChip,
-                ...(selected.includes(g) ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
+                ...(freeOnly ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
               }}
-              onClick={() => toggle(g)}
+              onClick={() => onFreeChange(!freeOnly)}
             >
-              {g}
+              🎟 Free events only
             </button>
-          ))}
-          {selected.length > 0 && (
-            <button
-              style={{ ...S.genreChip, color: '#ff6b6b', borderColor: '#4a2a2a' }}
-              onClick={() => onChange([])}
-            >
-              Clear all
-            </button>
+          </div>
+
+          {genres.length > 0 && (
+            <div>
+              <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Genre</div>
+              <div style={S.rowWrap}>
+                {genres.map(g => (
+                  <button
+                    key={g}
+                    style={{
+                      ...S.genreChip,
+                      ...(genreFilters.includes(g) ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
+                    }}
+                    onClick={() => toggleGenre(g)}
+                  >
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
+
+          <button style={{ ...S.clearBtn, alignSelf: 'flex-start' }} onClick={onReset}>
+            Reset all filters
+          </button>
         </div>
       )}
     </div>
@@ -284,6 +345,7 @@ export default function App() {
   const [dateTo, setDateTo] = useState(defaultDates().to)
   const [genreFilters, setGenreFilters] = useState([])
   const [quickDate, setQuickDate] = useState(null) // 'today' | 'weekend' | null
+  const [freeOnly, setFreeOnly] = useState(false)
 
   // Panel state
   const [panel, setPanel] = useState(null)
@@ -314,6 +376,7 @@ export default function App() {
     setSearch('')
     setGenreFilters([])
     setQuickDate(null)
+    setFreeOnly(false)
     loadTab(tabId)
   }
 
@@ -350,6 +413,7 @@ export default function App() {
     return events.filter(e => {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
+      if (freeOnly && e.is_free !== true) return false
       if (genreFilters.length > 0 && e.genre && !genreFilters.includes(e.genre)) return false
       if (search.trim()) {
         const q = search.toLowerCase()
@@ -361,7 +425,7 @@ export default function App() {
       }
       return true
     })
-  }, [events, search, dateFrom, dateTo, genreFilters])
+  }, [events, search, dateFrom, dateTo, genreFilters, freeOnly])
 
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
@@ -411,11 +475,16 @@ export default function App() {
     setSearch('')
     setGenreFilters([])
     setQuickDate(null)
+    setFreeOnly(false)
   }
 
   const totalMapped = venueGroups.length
   const totalEvents = filteredEvents.length
-  const hasFilters = search.trim() || genreFilters.length > 0 || quickDate
+  const defaults = defaultDates()
+  const datesCustomized = !quickDate && (dateFrom !== defaults.from || dateTo !== defaults.to)
+  const activeFilterCount =
+    (quickDate || datesCustomized ? 1 : 0) + genreFilters.length + (freeOnly ? 1 : 0)
+  const hasFilters = search.trim() || activeFilterCount > 0
 
   return (
     <div style={S.root}>
@@ -456,41 +525,22 @@ export default function App() {
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <button
-            style={{ ...S.quickBtn, ...(quickDate === 'today' ? S.quickBtnActive : {}) }}
-            onClick={() => applyQuickDate('today')}
-          >
-            Today
-          </button>
-          <button
-            style={{ ...S.quickBtn, ...(quickDate === 'weekend' ? S.quickBtnActive : {}) }}
-            onClick={() => applyQuickDate('weekend')}
-          >
-            This Weekend
-          </button>
-          <span style={S.separator}>from</span>
-          <input
-            type="date"
-            style={{ ...S.input, ...S.dateInput }}
-            value={dateFrom}
-            onChange={handleDateChange(setDateFrom)}
+          <FiltersDropdown
+            accentColor={activeTab.accentColor}
+            genres={activeTab.genres}
+            quickDate={quickDate}
+            onQuickDate={applyQuickDate}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            onFromChange={handleDateChange(setDateFrom)}
+            onToChange={handleDateChange(setDateTo)}
+            genreFilters={genreFilters}
+            onGenresChange={setGenreFilters}
+            freeOnly={freeOnly}
+            onFreeChange={setFreeOnly}
+            onReset={resetDates}
+            activeCount={activeFilterCount}
           />
-          <span style={S.separator}>to</span>
-          <input
-            type="date"
-            style={{ ...S.input, ...S.dateInput }}
-            value={dateTo}
-            onChange={handleDateChange(setDateTo)}
-          />
-          {activeTab.genres.length > 0 && (
-            <GenreMultiSelect
-              genres={activeTab.genres}
-              selected={genreFilters}
-              onChange={setGenreFilters}
-              accentColor={activeTab.accentColor}
-            />
-          )}
-          <button style={S.clearBtn} onClick={resetDates}>Reset</button>
         </div>
 
         <MapView
