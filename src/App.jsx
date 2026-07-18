@@ -52,6 +52,19 @@ const ART_GENRES = [
   'Sculpture', 'Street Art', 'Textile', 'Video Art',
 ]
 
+// True if the event's genre matches any selected chip. Case-insensitive, and
+// compound genres ("Shoegaze/Rock", "pop rock") match on any component word.
+// Events with no genre only match the "Other" chip.
+function genreMatches(eventGenre, selectedGenres) {
+  if (selectedGenres.length === 0) return true
+  const raw = (eventGenre || 'Other').toLowerCase()
+  const words = raw.split(/[\s/,;+]+/).filter(Boolean)
+  return selectedGenres.some(sel => {
+    const s = sel.toLowerCase()
+    return raw === s || words.includes(s)
+  })
+}
+
 const TABS = [
   {
     id: 'concert',
@@ -447,7 +460,7 @@ export default function App() {
       if (freeOnly && e.is_free !== true) return false
       if (justAnnounced && (!e.created_at || new Date(e.created_at).getTime() < announcedCutoff)) return false
       if (buzzingOnly && (e.seen_sources?.length ?? 0) < 2) return false
-      if (genreFilters.length > 0 && e.genre && !genreFilters.includes(e.genre)) return false
+      if (!genreMatches(e.genre, genreFilters)) return false
       if (search.trim()) {
         const q = search.toLowerCase()
         return (
@@ -551,6 +564,21 @@ export default function App() {
             </button>
           )
         })}
+        <a
+          href="https://nyc-discovery.netlify.app"
+          target="_blank"
+          rel="noreferrer"
+          style={{
+            ...S.tab,
+            marginLeft: 'auto',
+            textDecoration: 'none',
+            color: '#e05c6d',
+            background: '#e05c6d18',
+            border: '1px solid #e05c6d44',
+          }}
+        >
+          🗽 Discovery ↗
+        </a>
       </div>
 
       <div style={S.mapArea}>
