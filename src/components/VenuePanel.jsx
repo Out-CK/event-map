@@ -143,9 +143,9 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 {formatTime(event.start_time) && (
                   <div style={{ ...S.time, color: accentColor }}>{formatTime(event.start_time)}</div>
                 )}
-                {(event.seen_sources?.length ?? 0) >= 2 && (
-                  <div style={S.buzzBadge} title={`Listed by ${event.seen_sources.length} sources`}>
-                    🔥 {event.seen_sources.length}
+                {(event.buzz_score ?? 0) >= 1.0 && (
+                  <div style={S.buzzBadge} title={(event.buzz_reasons || []).join(' · ') || 'Buzzing'}>
+                    🔥
                   </div>
                 )}
                 {hasTickets(event) && (

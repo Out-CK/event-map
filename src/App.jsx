@@ -52,6 +52,10 @@ const ART_GENRES = [
   'Sculpture', 'Street Art', 'Textile', 'Video Art',
 ]
 
+// Minimum buzz_score (computed daily by the source-agent buzz scorer from
+// sighting velocity, social engagement, and on-sale momentum) for 🔥 Buzzing.
+const BUZZ_THRESHOLD = 1.0
+
 // True if the event's genre matches any selected chip. Case-insensitive, and
 // compound genres ("Shoegaze/Rock", "pop rock") match on any component word.
 // Events with no genre only match the "Other" chip.
@@ -384,8 +388,8 @@ export default function App() {
   const [dateTo, setDateTo] = useState(defaultDates().to)
   const [genreFilters, setGenreFilters] = useState([])
   const [quickDate, setQuickDate] = useState(null) // 'today' | 'weekend' | null
-  const [justAnnounced, setJustAnnounced] = useState(false) // added in the last 7 days
-  const [buzzingOnly, setBuzzingOnly] = useState(false) // listed by 2+ sources
+  const [justAnnounced, setJustAnnounced] = useState(false) // announced in the last 7 days
+  const [buzzingOnly, setBuzzingOnly] = useState(false) // buzz_score above threshold
   const [freeOnly, setFreeOnly] = useState(false)
 
   // Panel state
@@ -458,8 +462,14 @@ export default function App() {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
       if (freeOnly && e.is_free !== true) return false
-      if (justAnnounced && (!e.created_at || new Date(e.created_at).getTime() < announcedCutoff)) return false
-      if (buzzingOnly && (e.seen_sources?.length ?? 0) < 2) return false
+      if (justAnnounced) {
+        // announced_at is the pipeline's estimate of the real announcement time
+        // (social post date or hash-gated crawl bound); created_at is the
+        // legacy fallback for rows that predate announcement tracking.
+        const announced = e.announced_at || e.created_at
+        if (!announced || new Date(announced).getTime() < announcedCutoff) return false
+      }
+      if (buzzingOnly && (e.buzz_score ?? 0) < BUZZ_THRESHOLD) return false
       if (!genreMatches(e.genre, genreFilters)) return false
       if (search.trim()) {
         const q = search.toLowerCase()

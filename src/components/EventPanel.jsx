@@ -456,17 +456,22 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
 
         {/* Entry metadata */}
         <div style={styles.divider} />
-        {event.created_at && (
+        {(event.announced_at || event.created_at) && (
           <div style={styles.infoRow}>
             <div style={styles.label}>Announced</div>
-            <div style={styles.value}>{formatAnnounced(event.created_at)}</div>
+            <div style={styles.value}>{formatAnnounced(event.announced_at || event.created_at)}</div>
           </div>
         )}
-        {(event.seen_sources?.length ?? 0) >= 2 && (
+        {(event.buzz_reasons?.length > 0 || (event.seen_sources?.length ?? 0) >= 2) && (
           <div style={styles.infoRow}>
             <div style={styles.label}>Buzz</div>
             <div style={{ ...styles.value, color: '#f4a24a' }}>
-              🔥 Listed by {event.seen_sources.length} independent sources
+              {(event.buzz_reasons?.length > 0
+                ? event.buzz_reasons
+                : [`Listed by ${event.seen_sources.length} independent sources`]
+              ).map((reason, i) => (
+                <div key={i}>🔥 {reason}</div>
+              ))}
             </div>
           </div>
         )}
