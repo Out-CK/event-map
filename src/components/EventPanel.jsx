@@ -179,6 +179,15 @@ function formatTime(t) {
   return t.replace(/^0/, '').toUpperCase()
 }
 
+function formatAnnounced(createdAt) {
+  const created = new Date(createdAt)
+  if (isNaN(created)) return null
+  const days = Math.floor((Date.now() - created.getTime()) / 86400000)
+  const rel = days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
+  const abs = created.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  return `${abs} (${rel})`
+}
+
 function getDomain(url) {
   try {
     return new URL(url).hostname.replace('www.', '')
@@ -447,6 +456,20 @@ export default function EventPanel({ event, onBack, onClose, accentColor = '#7c6
 
         {/* Entry metadata */}
         <div style={styles.divider} />
+        {event.created_at && (
+          <div style={styles.infoRow}>
+            <div style={styles.label}>Announced</div>
+            <div style={styles.value}>{formatAnnounced(event.created_at)}</div>
+          </div>
+        )}
+        {(event.seen_sources?.length ?? 0) >= 2 && (
+          <div style={styles.infoRow}>
+            <div style={styles.label}>Buzz</div>
+            <div style={{ ...styles.value, color: '#f4a24a' }}>
+              🔥 Listed by {event.seen_sources.length} independent sources
+            </div>
+          </div>
+        )}
         <div style={styles.infoRow}>
           <div style={styles.label}>Entry ID</div>
           <div style={{ ...styles.value, fontFamily: 'monospace', fontSize: '12px', color: '#555' }}>

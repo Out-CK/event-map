@@ -223,7 +223,9 @@ const S = {
 
 function FiltersDropdown({
   accentColor, genres, quickDate, onQuickDate, dateFrom, dateTo, onFromChange,
-  onToChange, genreFilters, onGenresChange, freeOnly, onFreeChange, onReset, activeCount,
+  onToChange, genreFilters, onGenresChange, freeOnly, onFreeChange,
+  justAnnounced, onJustAnnouncedChange, buzzingOnly, onBuzzingChange,
+  onReset, activeCount,
 }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -302,6 +304,30 @@ function FiltersDropdown({
             </button>
           </div>
 
+          <div>
+            <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Discovery</div>
+            <div style={S.rowWrap}>
+              <button
+                style={{
+                  ...S.genreChip,
+                  ...(justAnnounced ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
+                }}
+                onClick={() => onJustAnnouncedChange(!justAnnounced)}
+              >
+                🆕 Just announced
+              </button>
+              <button
+                style={{
+                  ...S.genreChip,
+                  ...(buzzingOnly ? { ...S.genreChipActive, background: `${accentColor}22`, borderColor: `${accentColor}66`, color: accentColor } : {}),
+                }}
+                onClick={() => onBuzzingChange(!buzzingOnly)}
+              >
+                🔥 Buzzing
+              </button>
+            </div>
+          </div>
+
           {genres.length > 0 && (
             <div>
               <div style={{ ...S.sectionLabel, marginBottom: '8px' }}>Genre</div>
@@ -345,6 +371,8 @@ export default function App() {
   const [dateTo, setDateTo] = useState(defaultDates().to)
   const [genreFilters, setGenreFilters] = useState([])
   const [quickDate, setQuickDate] = useState(null) // 'today' | 'weekend' | null
+  const [justAnnounced, setJustAnnounced] = useState(false) // added in the last 7 days
+  const [buzzingOnly, setBuzzingOnly] = useState(false) // listed by 2+ sources
   const [freeOnly, setFreeOnly] = useState(false)
 
   // Panel state
@@ -377,6 +405,8 @@ export default function App() {
     setGenreFilters([])
     setQuickDate(null)
     setFreeOnly(false)
+    setJustAnnounced(false)
+    setBuzzingOnly(false)
     loadTab(tabId)
   }
 
@@ -410,10 +440,13 @@ export default function App() {
   const filteredEvents = useMemo(() => {
     const fromDb = inputToDb(dateFrom)
     const toDb = inputToDb(dateTo)
+    const announcedCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000
     return events.filter(e => {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
       if (freeOnly && e.is_free !== true) return false
+      if (justAnnounced && (!e.created_at || new Date(e.created_at).getTime() < announcedCutoff)) return false
+      if (buzzingOnly && (e.seen_sources?.length ?? 0) < 2) return false
       if (genreFilters.length > 0 && e.genre && !genreFilters.includes(e.genre)) return false
       if (search.trim()) {
         const q = search.toLowerCase()
@@ -425,7 +458,7 @@ export default function App() {
       }
       return true
     })
-  }, [events, search, dateFrom, dateTo, genreFilters, freeOnly])
+  }, [events, search, dateFrom, dateTo, genreFilters, freeOnly, justAnnounced, buzzingOnly])
 
   const { venueGroups, unmappedCount, unmappedEventCount } = useMemo(() => {
     const map = new Map()
@@ -476,6 +509,8 @@ export default function App() {
     setGenreFilters([])
     setQuickDate(null)
     setFreeOnly(false)
+    setJustAnnounced(false)
+    setBuzzingOnly(false)
   }
 
   const totalMapped = venueGroups.length
@@ -483,7 +518,8 @@ export default function App() {
   const defaults = defaultDates()
   const datesCustomized = !quickDate && (dateFrom !== defaults.from || dateTo !== defaults.to)
   const activeFilterCount =
-    (quickDate || datesCustomized ? 1 : 0) + genreFilters.length + (freeOnly ? 1 : 0)
+    (quickDate || datesCustomized ? 1 : 0) + genreFilters.length + (freeOnly ? 1 : 0) +
+    (justAnnounced ? 1 : 0) + (buzzingOnly ? 1 : 0)
   const hasFilters = search.trim() || activeFilterCount > 0
 
   return (
@@ -538,6 +574,10 @@ export default function App() {
             onGenresChange={setGenreFilters}
             freeOnly={freeOnly}
             onFreeChange={setFreeOnly}
+            justAnnounced={justAnnounced}
+            onJustAnnouncedChange={setJustAnnounced}
+            buzzingOnly={buzzingOnly}
+            onBuzzingChange={setBuzzingOnly}
             onReset={resetDates}
             activeCount={activeFilterCount}
           />

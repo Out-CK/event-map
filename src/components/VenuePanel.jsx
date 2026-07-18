@@ -44,6 +44,10 @@ const S = {
     fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
     background: '#2a2a4a', color: '#9090ff', marginLeft: '8px', flexShrink: 0,
   },
+  buzzBadge: {
+    fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px',
+    background: '#3a2a1a', color: '#f4a24a', marginLeft: '8px', flexShrink: 0,
+  },
   highlight: { background: '#f4a24a33', color: '#f4a24a', borderRadius: '2px', padding: '0 1px' },
 }
 
@@ -138,6 +142,11 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 </div>
                 {formatTime(event.start_time) && (
                   <div style={{ ...S.time, color: accentColor }}>{formatTime(event.start_time)}</div>
+                )}
+                {(event.seen_sources?.length ?? 0) >= 2 && (
+                  <div style={S.buzzBadge} title={`Listed by ${event.seen_sources.length} sources`}>
+                    🔥 {event.seen_sources.length}
+                  </div>
                 )}
                 {hasTickets(event) && (
                   <div style={S.ticketBadge}>TIX</div>
