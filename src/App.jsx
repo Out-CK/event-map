@@ -79,10 +79,15 @@ const S = {
   logo: { fontSize: '15px', fontWeight: 700, color: '#f0f0f0', letterSpacing: '-0.3px' },
   topRight: { display: 'flex', alignItems: 'center', gap: '14px' },
   stats: { fontSize: '13px', color: '#555' },
-  discoveryLink: {
-    padding: '6px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 600,
-    textDecoration: 'none', color: '#e05c6d', background: '#e05c6d18',
-    border: '1px solid #e05c6d44',
+  bottomNav: {
+    display: 'flex', alignItems: 'stretch', background: '#111118',
+    borderTop: '1px solid #2a2a3a', flexShrink: 0, zIndex: 900,
+    paddingBottom: 'env(safe-area-inset-bottom)',
+  },
+  bottomTab: {
+    flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', gap: '3px', padding: '9px 0 7px',
+    fontSize: '11px', fontWeight: 600, textDecoration: 'none', color: '#6b7280',
   },
   mapArea: { flex: 1, position: 'relative', overflow: 'hidden' },
   filterBar: {
@@ -420,7 +425,6 @@ export default function App() {
               ? 'Loading…'
               : `${totalEvents} events · ${totalMapped} venues${unmappedCount > 0 ? ` · ${unmappedEventCount} not located` : ''}`}
           </div>
-          <a href="/feed" style={S.discoveryLink}>🗽 Discovery</a>
         </div>
       </div>
 
@@ -552,6 +556,30 @@ export default function App() {
           />
         )}
       </div>
+
+      {/* Bottom tabs — mirrors the Discovery app's Map · Discovery · You bar */}
+      <nav style={S.bottomNav}>
+        <a href="/map/" style={{ ...S.bottomTab, color: ACCENT }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6" />
+            <line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" />
+          </svg>
+          Map
+        </a>
+        <a href="/feed" style={S.bottomTab}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+          </svg>
+          Discovery
+        </a>
+        <a href="/you" style={S.bottomTab}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" />
+          </svg>
+          You
+        </a>
+      </nav>
     </div>
   )
 }
