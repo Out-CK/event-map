@@ -165,7 +165,7 @@ export default function VenuePanel({ venue, onSelectEvent, onClose, accentColor 
                 {formatTime(event.start_time) && (
                   <div style={{ ...S.time, color: accentColor }}>{formatTime(event.start_time)}</div>
                 )}
-                {(event.buzz_score ?? 0) >= 1.0 && (
+                {event.buzzing === true && (
                   <div style={S.buzzBadge} title={(event.buzz_reasons || []).join(' · ') || 'Buzzing'}>
                     🔥
                   </div>

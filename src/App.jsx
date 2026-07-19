@@ -40,9 +40,10 @@ function weekendRange() {
   return { from: fmt(fri), to: fmt(sun) }
 }
 
-// Minimum buzz_score (computed daily by the source-agent buzz scorer from
-// sighting velocity, social engagement, and on-sale momentum) for 🔥 Buzzing.
-const BUZZ_THRESHOLD = 1.0
+// 🔥 Buzzing = the `buzzing` flag stamped by the source-agent buzz scorer
+// (top decile of buzz_score each run, with an absolute floor). The scorer owns
+// the threshold so the badge stays selective as the score distribution shifts.
+const isBuzzing = e => e.buzzing === true
 
 const ACCENT = '#7c6af7'
 
@@ -327,7 +328,7 @@ export default function App() {
       if (fromDb && compareDates(e.date, fromDb) < 0) return false
       if (toDb && compareDates(e.date, toDb) > 0) return false
       if (freeOnly && e.is_free !== true) return false
-      if (buzzingOnly && (e.buzz_score ?? 0) < BUZZ_THRESHOLD) return false
+      if (buzzingOnly && !isBuzzing(e)) return false
       if (newCutoff) {
         const announced = announcedAtMs(e)
         if (!announced || announced < newCutoff) return false

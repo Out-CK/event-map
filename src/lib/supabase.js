@@ -6,10 +6,22 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
 export async function fetchEventsByType(eventType) {
+  // Only the columns the map renders — select('*') drags the multi-KB
+  // webpage_contents columns along and times out the statement at ~3k rows.
+  const COLUMNS = [
+    'event_entry_id', 'event_title', 'description', 'artist', 'venue',
+    'event_type', 'multi_day_event', 'date', 'start_time', 'end_time',
+    'genre', 'is_free', 'address', 'lat', 'lng', 'media_url',
+    'tickets_source_1', 'tickets_source_2', 'tickets_source_3', 'tickets_source_4',
+    'no_tickets_source_1', 'no_tickets_source_2', 'no_tickets_source_3', 'no_tickets_source_4',
+    'seen_sources', 'created_at', 'announced_at',
+    'buzz_score', 'buzz_reasons', 'buzzing',
+  ].join(',')
+
   const buildQuery = () => {
     let q = supabase
       .from('event_entry_database_v2')
-      .select('*')
+      .select(COLUMNS)
       .not('date', 'like', '<%')  // exclude malformed dates like <UNKNOWN>
       .not('date', 'is', null)
       .order('date', { ascending: true })
